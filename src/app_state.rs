@@ -1,4 +1,4 @@
-use crate::cache::RedisCache;
+use crate::cache::{RedisCache, CacheAsideStrategy, WriteThroughStrategy, CacheTTLConfig, CacheInvalidationManager};
 use crate::config::Settings;
 use crate::storage::StorageBackend;
 use sqlx::SqlitePool;
@@ -15,6 +15,8 @@ pub struct AppState {
     pub storage: Arc<dyn StorageBackend>,
     /// Optional Redis cache (Wave 4)
     pub cache: Option<Arc<RedisCache>>,
+    /// Cache TTL configuration
+    pub ttl_config: Arc<CacheTTLConfig>,
 }
 
 impl AppState {
@@ -29,7 +31,23 @@ impl AppState {
             db,
             storage,
             cache,
+            ttl_config: Arc::new(CacheTTLConfig::default()),
         }
+    }
+
+    /// Check if cache is available
+    pub fn cache_available(&self) -> bool {
+        self.cache.is_some()
+    }
+
+    /// Get Redis cache if available
+    pub fn get_cache(&self) -> Option<&Arc<RedisCache>> {
+        self.cache.as_ref()
+    }
+
+    /// Get TTL config
+    pub fn get_ttl_config(&self) -> &CacheTTLConfig {
+        &self.ttl_config
     }
 
     /// Get server bind address from cached settings
