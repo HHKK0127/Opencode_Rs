@@ -639,10 +639,165 @@ Total: 42 tests, 14 days
 
 ---
 
-**Last Updated**: 2026-06-04  
+## 🚀 Wave 4 Day 12 実装完成（2026-06-04）
+
+### 実装内容
+**キャッシュストラテジパターン** ✅
+
+```rust
+src/cache/
+├── strategy.rs       // Cache-Aside + Write-Through
+├── invalidation.rs   // Pattern-based invalidation
+└── session.rs        // Session management (準備)
+```
+
+**Cache-Aside パターン**:
+```rust
+pub async fn get_or_fetch<F, T>(
+    &self, key: &str, fetch_fn: F, ttl: Duration
+) -> CacheResult<T>
+```
+- キャッシュヒット時は即座に返却（O(1)）
+- ミス時は fetch_fn で DB/API から取得
+- 取得値を自動的にキャッシュ
+- メトリクス: cache_aside_hit/miss/error
+
+**Write-Through パターン**:
+```rust
+pub async fn set_with_db<F, T>(
+    &self, key: &str, value: &T, ttl: Duration, write_fn: F
+) -> CacheResult<()>
+```
+- DB書き込み → キャッシュ書き込み（原子性）
+- 外部DB更新時の無効化対応
+- メトリクス: write_through_set/get/invalidate
+
+**TTL 設定**:
+- ファイルメタデータ: 3600秒（1h）
+- ファイルリスト: 1800秒（30m）
+- 検索結果: 1800秒（30m）
+- セッション: 86400秒（24h）
+
+**パターン無効化**:
+- `file:metadata:*` → ファイルメタデータ
+- `files:list:*` → ファイルリスト
+- `files:search:*` → 検索結果
+- `session:*` → セッション
+- `user:*:*` → ユーザーデータ
+
+### テスト統計
+- Unit tests (strategy.rs): 6/6 ✅
+- Integration tests (day12_*): 7/7 ✅
+- Total: 13 tests passing
+
+### GitHub 統合
+- PR #1: Wave 4 Day 11 (Redis メトリクス) → main マージ ✅
+- PR #2: Wave 4 Day 12 (キャッシュストラテジ) → main マージ ✅
+- Latest commit: 98791ba (Day 12統合)
+
+### AppState 統合
+```rust
+pub struct AppState {
+    pub cache: Option<Arc<RedisCache>>,
+    pub ttl_config: Arc<CacheTTLConfig>,  // Day 12新規
+    ...
+}
+```
+
+---
+
+---
+
+## 🚀 Wave 4 Day 13 実装完成（2026-06-04）
+
+### 実装内容
+**API キャッシング統合** ✅
+
+```rust
+src/api/
+├── file_search.rs       // Search endpoint with Cache-Aside
+├── files.rs             // File API endpoints with caching
+└── mod.rs               // Route configuration
+```
+
+**キャッシング実装**:
+- `GET /api/v1/files/{id}` → メタデータキャッシュ（1h TTL）
+- `GET /api/v1/files?page=*` → リストキャッシュ（30m TTL）
+- `GET /api/v1/files/search` → 検索結果キャッシュ（30m TTL）
+- `POST /api/v1/files/upload` → キャッシュ無効化
+- `DELETE /api/v1/files/{id}` → 全関連キャッシュ無効化
+
+**Cache-Aside パターン実装**:
+1. キャッシュからGET（set属性なし）
+2. ヒット時は即座に応答
+3. ミス時はDB/API取得 → キャッシュSET（TTL付き）
+4. エラーハンドリング: Redis不可時も安全にフォールバック
+
+**メトリクス統合**:
+- `redis_operations_total` - 操作数（23ラベル）
+- `redis_cache_hits_total` - キャッシュヒット数
+- `redis_cache_misses_total` - キャッシュミス数
+- ラベル例: search_cache_hit, api_metadata_cache_hit, api_list_cache_miss
+
+**無効化パターン**:
+- DELETE実行時: metadata + lists + search を削除
+- Upload実行時: lists + search を削除
+- パターン削除は future work（SCAN command需要）
+
+### テスト統計
+- Integration tests (day13_*): 7/7 ✅
+  * test_01_file_metadata_cache - メタデータキャッシュ動作
+  * test_02_file_list_cache - ページネーション対応
+  * test_03_search_results_cache - クエリハッシング
+  * test_04_cache_hit_rate - ヒット率計算
+  * test_05_cache_invalidation - パターンマッチ無効化
+  * test_06_large_dataset_caching - 大規模リストキャッシング
+  * test_07_cache_memory_efficiency - メモリ効率測定
+- Total: 7 tests passing
+
+### 修正内容
+1. **インポート修正**:
+   - `REDIS_OPERATIONS_TOTAL` を `cache::metrics` に統一
+   - `FileMetadataResponse` に `Deserialize` derive 追加
+
+2. **RedisCache API 適応**:
+   - `set_with_ttl()` → `set(..., Some(Duration))` に変更
+   - `delete_pattern()` 削除（SCAN command 未実装）
+   - シンプルな削除ロジックで対応
+
+3. **型安全性**:
+   - `Serialize + Deserialize` トレイト実装確認
+   - AppState の ttl_config からTTL値取得
+
+### 性能改善（予測値）
+```
+Before (Wave 3):         After (Day 13):
+p50:  20ms      →        5ms (4倍)
+p95:  100ms     →        50ms (2倍)
+キャッシュヒット時:     < 1ms（10-20倍高速化）
+```
+
+### GitHub 統合
+- Branch: feature/wave4-day13-api-caching
+- Latest commit: b6caa83 (Day 13 API Caching Integration)
+- Status: Ready for PR #3 merge
+
+---
+
+**Last Updated**: 2026-06-04 (23:45)  
 **Status**: 
-- ✅ Wave 3 完成 (175/175 tests, 2026-06-04)
+- ✅ Wave 3 完成 (175/175 tests)
 - ✅ Wave 4 Day 11 完成 (Redis 基盤実装, 5 tests)
-- 📋 Wave 4 Day 12-15 計画中 (27 tests目標)
+- ✅ Wave 4 Day 12 完成 (キャッシュストラテジ, 13 tests)
+- ✅ Wave 4 Day 13 完成 (API キャッシング統合, 7 tests)
+- 📋 Wave 4 Day 14-15 計画中 (Session+Perf = 9 tests目標)
 - 📋 Wave 4.5 計画中 (Hermes 統合, 15 tests)
-**Memory Version**: 2.2
+
+**進捗**: 25/42 テスト完成 (60%)
+
+**次のステップ**: Day 14「Session 管理（JWT+Redis）」
+- Redis でセッション状態管理
+- JWT トークンリフレッシュ
+- セッションタイムアウト処理
+
+**Memory Version**: 2.4
