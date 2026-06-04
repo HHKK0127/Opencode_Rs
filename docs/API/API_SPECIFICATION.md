@@ -1,8 +1,9 @@
 # OpenCode Core API 仕様書
 
-**バージョン**: 1.0.0  
+**バージョン**: 1.1.0  
 **作成日**: 2026-05-27  
-**Wave 1 完成版**
+**最終更新**: 2026-06-05 (Wave 4 Day 13 キャッシング機能追加)  
+**Wave 1-3 + Wave 4 Day 13 完成版**
 
 ---
 
@@ -170,6 +171,148 @@ Form Data:
 - `400 Bad Request` — ファイルが見つからない
 - `413 Payload Too Large` — ファイルサイズが 10MB を超過
 
+**キャッシング** (Wave 4 Day 13):
+- Upload 実行時: リスト & 検索キャッシュを無効化
+
+---
+
+### GET /files/{id}
+ファイルメタデータ取得 **(キャッシュ付き - 1h TTL)**
+
+**ヘッダー:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**パラメータ:**
+- `id` (path): ファイル ID (UUID)
+
+**レスポンス (200):**
+```json
+{
+  "id": "uuid",
+  "filename": "string",
+  "size": 1024,
+  "mime_type": "application/pdf",
+  "created_at": "2026-05-27T10:30:00Z",
+  "is_public": false
+}
+```
+
+**キャッシング** (Wave 4 Day 13):
+- **キャッシュキー**: `file:metadata:{id}`
+- **TTL**: 1時間
+- **パターン**: Cache-Aside (Redis miss → DB query → cache set)
+- **メトリクス**: 
+  - `redis_cache_hits_total` — キャッシュヒット数
+  - `redis_cache_misses_total` — キャッシュミス数
+  - `redis_operations_total{operation="api_metadata_cache_hit/miss"}`
+
+---
+
+### GET /files
+ファイル一覧取得（ページネーション付き）**(キャッシュ付き - 30m TTL)**
+
+**ヘッダー:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**クエリパラメータ:**
+- `page` (optional): ページ番号 (デフォルト: 1)
+- `per_page` (optional): 1ページあたりの件数 (デフォルト: 20, 最大: 100)
+
+**レスポンス (200):**
+```json
+{
+  "files": [
+    {
+      "id": "uuid",
+      "filename": "document.pdf",
+      "size": 2048,
+      "mime_type": "application/pdf",
+      "created_at": "2026-05-27T10:30:00Z",
+      "url": "/api/v1/files/{id}/download"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "per_page": 20,
+    "total": 100,
+    "total_pages": 5
+  }
+}
+```
+
+**キャッシング** (Wave 4 Day 13):
+- **キャッシュキー**: `files:list:{page}:{per_page}`
+- **TTL**: 30分
+- **パターン**: Cache-Aside
+- **無効化**: DELETE /files/{id} 実行時、Upload 実行時
+- **メトリクス**: `redis_operations_total{operation="api_list_cache_hit/miss"}`
+
+---
+
+### GET /files/search
+ファイル検索（フィルタ付き）**(キャッシュ付き - 30m TTL)**
+
+**ヘッダー:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**クエリパラメータ:**
+- `q` (optional): キーワード検索
+- `file_type` (optional): ファイルタイプフィルタ
+- `created_after` (optional): 作成日付フィルタ
+- `page` (optional): ページ番号 (デフォルト: 1)
+- `per_page` (optional): 1ページあたりの件数 (デフォルト: 20, 最大: 100)
+
+**レスポンス (200):**
+```json
+{
+  "files": [...],
+  "total": 25,
+  "page": 1,
+  "per_page": 20,
+  "total_pages": 2,
+  "cached": true
+}
+```
+
+**キャッシング** (Wave 4 Day 13):
+- **キャッシュキー**: `files:search:{query_hash}:{page}:{per_page}`
+- **キー生成**: DefaultHasher で全クエリパラメータをハッシュ化
+- **TTL**: 30分
+- **パターン**: Cache-Aside
+- **無効化**: DELETE /files/{id} 実行時、Upload 実行時
+- **メトリクス**: `redis_operations_total{operation="search_cache_hit/miss"}`
+
+---
+
+### DELETE /files/{id}
+ファイル削除
+
+**ヘッダー:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**レスポンス (200):**
+```json
+{
+  "status": "success",
+  "message": "File deleted successfully"
+}
+```
+
+**キャッシング** (Wave 4 Day 13):
+- **無効化対象**:
+  - `file:metadata:{id}` — メタデータキャッシュ
+  - `files:list:*` — 全ページのリストキャッシュ
+  - `files:search:*` — 全検索結果キャッシュ
+- **メトリクス**: `redis_operations_total{operation="api_invalidate_on_delete"}`
+
 ---
 
 ## ヘルスチェックエンドポイント
@@ -306,6 +449,45 @@ scrape_configs:
 
 📋 **[../Operations/MONITORING.md](../Operations/MONITORING.md)** — 完全な監視システム設定ガイド
 
+### Redis キャッシングメトリクス (Wave 4 Day 13+)
+
+#### redis_cache_hits_total (Counter)
+- **説明**: Redis キャッシュヒット総数
+- **用途**: キャッシュ効率性監視
+- **Prometheus クエリ例**:
+  ```promql
+  rate(redis_cache_hits_total[5m])  # ヒット率の時間変化
+  ```
+
+#### redis_cache_misses_total (Counter)
+- **説明**: Redis キャッシュミス総数
+- **用途**: キャッシュヒット率計算
+- **Prometheus クエリ例**:
+  ```promql
+  # キャッシュヒット率（%）
+  (redis_cache_hits_total / (redis_cache_hits_total + redis_cache_misses_total)) * 100
+  ```
+
+#### redis_operations_total (Counter)
+- **説明**: Redis 操作総数
+- **ラベル**: `operation` (api_metadata_cache_hit/miss, api_list_cache_hit/miss, search_cache_hit/miss, など)
+- **用途**: キャッシング動作詳細監視
+- **Prometheus クエリ例**:
+  ```promql
+  # メタデータキャッシュのヒット数
+  redis_operations_total{operation="api_metadata_cache_hit"}
+  ```
+
+#### redis_command_duration_seconds (Histogram)
+- **説明**: Redis コマンド実行時間（秒）
+- **ラベル**: `command` (GET, SET, DEL, など)
+- **用途**: Redis レイテンシ監視
+- **Prometheus クエリ例**:
+  ```promql
+  # SET コマンドのp95レイテンシ
+  histogram_quantile(0.95, rate(redis_command_duration_seconds_bucket{command="SET"}[5m]))
+  ```
+
 ### レスポンス時間
 
 - **通常**: 2-3ms
@@ -388,9 +570,10 @@ Failed to generate metrics
 
 | バージョン | 日付 | 変更内容 |
 |-----------|------|---------|
+| 1.1.0 | 2026-06-05 | Wave 4 Day 13 キャッシング機能追加（GET /files/{id}, GET /files, GET /files/search, DELETE /files/{id}キャッシング実装、Redis メトリクス追加） |
 | 1.0.0 | 2026-05-27 | Wave 1 仕様書完成 |
 
 ---
 
 **Location**: docs/API/API_SPECIFICATION.md  
-**Last Updated**: 2026-05-30
+**Last Updated**: 2026-06-05

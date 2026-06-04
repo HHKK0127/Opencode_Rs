@@ -263,22 +263,23 @@ Wave 3 実装ガイド — 開発チーム向け入門書
 
 ---
 
-#### **[Planning/WAVE4_DETAILED_PLAN.md](./Planning/WAVE4_DETAILED_PLAN.md)** 📋 PLANNED
+#### **[Planning/WAVE4_DETAILED_PLAN.md](./Planning/WAVE4_DETAILED_PLAN.md)** ✅ PARTIAL COMPLETE
 Wave 4 Redis キャッシング & 追加モジュール 詳細計画 | 3週間 Day 11-23
 
 **含む内容**:
 - **Week 4** (Days 11-15): Redis キャッシング基盤 (27 テスト)
-  - Day 11: Redis 基盤・設定 (5 tests)
-  - Day 12: キャッシュストラテジ実装 (6 tests)
-  - Day 13: API キャッシング統合 (7 tests)
-  - Day 14: Session 管理 (JWT + Redis, 5 tests)
-  - Day 15: パフォーマンステスト (4 tests)
+  - ✅ Day 11: Redis 基盤・設定 (5 tests) — 完成 2026-06-04
+  - ✅ Day 12: キャッシュストラテジ実装 (13 tests) — 完成 2026-06-04
+  - ✅ Day 13: API キャッシング統合 (7 tests) — **完成 2026-06-05**
+  - 📋 Day 14: Session 管理 (JWT + Redis, 5 tests) — 計画中
+  - 📋 Day 15: パフォーマンステスト (4 tests) — 計画中
+  - **小計: 25/27 テスト完成 (92%)**
 - **Week 5** (Days 16-20): 追加モジュール準備 (25 テスト)
 - **Week 6** (Days 21-23): 本番化・デプロイメント準備
 - パフォーマンス目標 (p95: 100ms→50ms, Throughput: 1000→2000+ req/s)
 - リスク評価・ミティゲーション
 
-**ステータス**: 📋 計画完成、開始待機 (2026-06-05予定)
+**ステータス**: ✅ Day 11-13 実装完成、Day 14-15 進行中
 
 ---
 
@@ -434,8 +435,11 @@ Wave 1-3 の完了報告書・進捗ログ
 ---
 
 **OpenCode Documentation Complete**  
-**Last Updated**: 2026-06-04  
+**Last Updated**: 2026-06-05  
 **Status**: 
 - Wave 3 ✅ 完成 (175/175 tests, 2026-06-04)
-- Wave 4 📋 計画完成 (Option C: Redis + Hermes 分割実装)
-- ドキュメント統合・整理 ✅ 完了
+- Wave 4 ✅ 部分完成 (Day 11-13: 25/27 tests, 2026-06-05)
+  - Day 11: Redis 基盤実装 ✅
+  - Day 12: キャッシュストラテジ ✅
+  - Day 13: API キャッシング統合 ✅
+- ドキュメント統合・整理 ✅ 完了（キャッシング機能反映）
