@@ -2,6 +2,7 @@ use crate::cache::{RedisCache, CacheResult, CacheError};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
+use std::sync::Arc;
 
 /// Session data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,11 +42,11 @@ impl SessionData {
 
 /// Session manager for JWT + Redis
 pub struct SessionManager {
-    cache: RedisCache,
+    cache: Arc<RedisCache>,
 }
 
 impl SessionManager {
-    pub fn new(cache: RedisCache) -> Self {
+    pub fn new(cache: Arc<RedisCache>) -> Self {
         Self { cache }
     }
 

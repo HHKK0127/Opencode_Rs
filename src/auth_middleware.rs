@@ -8,7 +8,8 @@ use std::task::{Context, Poll};
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use std::rc::Rc;
 
-use crate::{error::AppError, models::Claims, app_state::AppState};
+use crate::{error::AppError, models::Claims, app_state::AppState, cache::session::SessionManager};
+use tracing::warn;
 
 pub struct AuthMiddleware;
 
@@ -78,6 +79,31 @@ where
 
                         match verify_jwt(token, jwt_secret) {
                             Ok(claims) => {
+                                // Validate session in Redis if cache available
+                                if let Some(state) = app_state {
+                                    if let Some(cache) = &state.cache {
+                                        let session_mgr = SessionManager::new(cache.clone());
+
+                                        match session_mgr.validate_session(token).await {
+                                            Ok(session_data) => {
+                                                // Session valid - extend activity timestamp
+                                                let _ = session_mgr.extend_session(token).await;
+                                            }
+                                            Err(e) => {
+                                                warn!("Session validation failed: {:?}", e);
+                                                return Ok(req.into_response(
+                                                    HttpResponse::Unauthorized()
+                                                        .json(serde_json::json!({
+                                                            "error": "Session expired or invalid",
+                                                            "code": 401
+                                                        }))
+                                                        .map_into_right_body(),
+                                                ));
+                                            }
+                                        }
+                                    }
+                                }
+
                                 req.extensions_mut().insert(claims);
                                 return service.call(req).await.map(|res| res.map_into_left_body());
                             }

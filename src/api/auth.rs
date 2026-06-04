@@ -6,7 +6,9 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use crate::error::{AppError, AppResult};
 use crate::models::{AuthRequest, AuthResponse, Claims, RegisterRequest, RegisterResponse, RefreshTokenRequest, ResetPasswordResponse};
 use crate::app_state::AppState;
+use crate::cache::session::SessionManager;
 use uuid::Uuid;
+use tracing::info;
 
 #[post("/auth/login")]
 pub async fn login(
@@ -49,6 +51,25 @@ pub async fn login(
                 app_state.settings.auth.token_expiry_hours,
             )?;
             let expires_in = app_state.settings.auth.token_expiry_hours as i64 * 3600;
+
+            // Create session in Redis if cache available
+            if let Some(cache) = &app_state.cache {
+                let session_mgr = SessionManager::new(cache.clone());
+                let permissions = vec![
+                    "read".to_string(),
+                    "write".to_string(),
+                ];
+
+                match session_mgr.create_session(&token, &id, username, permissions).await {
+                    Ok(_) => {
+                        info!("Session created for user: {}", username);
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to create session: {:?}", e);
+                        // Continue - JWT is still valid even if session creation fails
+                    }
+                }
+            }
 
             Ok(HttpResponse::Ok().json(AuthResponse {
                 token,
@@ -164,9 +185,48 @@ pub async fn reset_password(
     }))
 }
 
+#[post("/auth/logout")]
+pub async fn logout(
+    app_state: web::Data<AppState>,
+    req: actix_web::HttpRequest,
+) -> AppResult<HttpResponse> {
+    // Extract token from Authorization header
+    let token = if let Some(auth_header) = req.headers().get("Authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            auth_str.strip_prefix("Bearer ").unwrap_or("").to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    // Invalidate session in Redis
+    if let Some(cache) = &app_state.cache {
+        let session_mgr = SessionManager::new(cache.clone());
+
+        if !token.is_empty() {
+            match session_mgr.invalidate_session(&token).await {
+                Ok(_) => {
+                    info!("Session invalidated");
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to invalidate session during logout: {:?}", e);
+                }
+            }
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "status": "logged_out",
+        "message": "Successfully logged out"
+    })))
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(login)
         .service(register)
         .service(refresh_token)
-        .service(reset_password);
+        .service(reset_password)
+        .service(logout);
 }
