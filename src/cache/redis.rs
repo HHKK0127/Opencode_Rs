@@ -1,11 +1,12 @@
 use redis::aio::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use super::error::{CacheError, CacheResult};
+use super::metrics::{REDIS_COMMAND_DURATION_SECONDS, REDIS_ERRORS_TOTAL, REDIS_OPERATIONS_TOTAL, REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL};
 
 /// Redis connection pool wrapper
 pub struct RedisCache {
@@ -58,20 +59,30 @@ impl RedisCache {
         &self,
         key: &str,
     ) -> CacheResult<Option<T>> {
+        let start = Instant::now();
         let mut conn = self.conn.lock().await;
         let value: Option<String> = redis::cmd("GET")
             .arg(key)
             .query_async(&mut *conn)
             .await
-            .map_err(|e| CacheError::RedisError(e))?;
+            .map_err(|e| {
+                REDIS_ERRORS_TOTAL.with_label_values(&["get"]).inc();
+                CacheError::RedisError(e)
+            })?;
+
+        let duration = start.elapsed();
+        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["GET"]).observe(duration.as_secs_f64());
+        REDIS_OPERATIONS_TOTAL.with_label_values(&["get"]).inc();
 
         match value {
             Some(v) => {
                 let deserialized = serde_json::from_str(&v)?;
+                REDIS_CACHE_HITS_TOTAL.inc();
                 debug!("Cache hit: {}", key);
                 Ok(Some(deserialized))
             }
             None => {
+                REDIS_CACHE_MISSES_TOTAL.inc();
                 debug!("Cache miss: {}", key);
                 Ok(None)
             }
@@ -85,6 +96,7 @@ impl RedisCache {
         value: &T,
         ttl: Option<Duration>,
     ) -> CacheResult<()> {
+        let start = Instant::now();
         let serialized = serde_json::to_string(value)?;
         let mut conn = self.conn.lock().await;
 
@@ -98,7 +110,10 @@ impl RedisCache {
                     .arg(seconds)
                     .query_async(&mut *conn)
                     .await
-                    .map_err(|e| CacheError::RedisError(e))?;
+                    .map_err(|e| {
+                        REDIS_ERRORS_TOTAL.with_label_values(&["set"]).inc();
+                        CacheError::RedisError(e)
+                    })?;
                 debug!("Cache set with TTL: {} ({}s)", key, seconds);
             }
             None => {
@@ -107,22 +122,37 @@ impl RedisCache {
                     .arg(&serialized)
                     .query_async(&mut *conn)
                     .await
-                    .map_err(|e| CacheError::RedisError(e))?;
+                    .map_err(|e| {
+                        REDIS_ERRORS_TOTAL.with_label_values(&["set"]).inc();
+                        CacheError::RedisError(e)
+                    })?;
                 debug!("Cache set: {}", key);
             }
         }
+
+        let duration = start.elapsed();
+        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["SET"]).observe(duration.as_secs_f64());
+        REDIS_OPERATIONS_TOTAL.with_label_values(&["set"]).inc();
 
         Ok(())
     }
 
     /// Delete key from cache
     pub async fn delete(&self, key: &str) -> CacheResult<()> {
+        let start = Instant::now();
         let mut conn = self.conn.lock().await;
         let _: u32 = redis::cmd("DEL")
             .arg(key)
             .query_async(&mut *conn)
             .await
-            .map_err(|e| CacheError::RedisError(e))?;
+            .map_err(|e| {
+                REDIS_ERRORS_TOTAL.with_label_values(&["delete"]).inc();
+                CacheError::RedisError(e)
+            })?;
+
+        let duration = start.elapsed();
+        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["DEL"]).observe(duration.as_secs_f64());
+        REDIS_OPERATIONS_TOTAL.with_label_values(&["delete"]).inc();
 
         debug!("Cache deleted: {}", key);
         Ok(())
@@ -130,12 +160,20 @@ impl RedisCache {
 
     /// Check if key exists
     pub async fn exists(&self, key: &str) -> CacheResult<bool> {
+        let start = Instant::now();
         let mut conn = self.conn.lock().await;
         let exists: bool = redis::cmd("EXISTS")
             .arg(key)
             .query_async(&mut *conn)
             .await
-            .map_err(|e| CacheError::RedisError(e))?;
+            .map_err(|e| {
+                REDIS_ERRORS_TOTAL.with_label_values(&["exists"]).inc();
+                CacheError::RedisError(e)
+            })?;
+
+        let duration = start.elapsed();
+        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["EXISTS"]).observe(duration.as_secs_f64());
+        REDIS_OPERATIONS_TOTAL.with_label_values(&["exists"]).inc();
 
         Ok(exists)
     }

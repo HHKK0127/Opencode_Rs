@@ -28,6 +28,10 @@ async fn main() -> std::io::Result<()> {
     middleware::metrics::init_metrics()
         .expect("Failed to initialize metrics");
 
+    // Initialize Redis cache metrics
+    cache::register_redis_metrics(&middleware::metrics::REGISTRY)
+        .expect("Failed to register Redis metrics");
+
     println!("🚀 PoC Verification Server Starting...");
 
     let settings = config::Settings::new()
