@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  opencode-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opencode-api
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: production
+      RUST_LOG: info
+      OPENCODE__SERVER__HOST: 0.0.0.0
+      OPENCODE__SERVER__PORT: 8080
+      OPENCODE__DATABASE__PATH: /data/poc.db
+      OPENCODE__DATABASE__AUTO_INIT: "true"
+      OPENCODE__DATABASE__MAX_CONNECTIONS: "20"
+      OPENCODE__UPLOAD__DIRECTORY: /data/uploads
+      OPENCODE__UPLOAD__MAX_FILE_SIZE_MB: "50"
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+    volumes:
+      - opencode-data:/data
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - opencode-network
+    restart: unless-stopped
+
+  # Optional: Redis for caching (to be integrated in Wave 2)
+  redis:
+    image: redis:7-alpine
+    container_name: opencode-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - opencode-network
+    restart: unless-stopped
+    profiles:
+      - with-redis
+
+volumes:
+  opencode-data:
+  redis-data:
+
+networks:
+  opencode-network:
+    driver: bridge

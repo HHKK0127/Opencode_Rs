@@ -1,0 +1,18 @@
+[storage]
+type = "s3"  # or "local" for backward compatibility
+
+[storage.s3]
+endpoint = "http://localhost:9000"
+region = "us-east-1"
+bucket = "opencode-uploads"
+access_key = "minioadmin"
+secret_key = "minioadmin123"
+use_path_style = true  # Required for MinIO
+
+[storage.s3.presigned]
+put_expiry_seconds = 300    # 5 minutes for upload
+get_expiry_seconds = 3600   # 1 hour for download
+
+[storage.s3.multipart]
+chunk_size_mb = 5           # 5MB chunks
+max_concurrent_parts = 10   # Parallel uploads

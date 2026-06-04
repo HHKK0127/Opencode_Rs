@@ -1,0 +1,23 @@
+# OpenCode PoC - Development Configuration
+
+[server]
+host = "127.0.0.1"
+port = 8080
+workers = 4
+
+[database]
+path = "./poc_test.db"
+auto_init = true
+max_connections = 5
+
+[logging]
+level = "debug"
+format = "compact"
+
+[auth]
+jwt_secret = "dev_secret_key_change_in_production"
+token_expiry_hours = 24
+
+[upload]
+max_file_size_mb = 10
+directory = "./uploads"
