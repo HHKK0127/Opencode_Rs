@@ -1,5 +1,6 @@
 use std::time::Duration;
-use crate::cache::{RedisCache, CacheResult, REDIS_OPERATIONS_TOTAL};
+use crate::cache::{RedisCache, CacheResult};
+use crate::cache::metrics::REDIS_OPERATIONS_TOTAL;
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 

@@ -6,11 +6,13 @@ use sha2::{Sha256, Digest};
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use bytes::Bytes;
+use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
 use crate::app_state::AppState;
 use crate::storage::{FileMetadata as StorageFileMetadata};
 use crate::validation::FileValidator;
+use crate::cache::metrics::{REDIS_OPERATIONS_TOTAL, REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL};
 
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // Wave 2: 100MB
 
@@ -84,6 +86,18 @@ pub async fn upload_file(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
 
+        // Invalidate list caches after upload (Wave 4 Day 13)
+        if let Some(cache) = &app_state.cache {
+            for page in 1..=10 {
+                for per_page in [10, 20, 50] {
+                    let list_key = format!("files:list:{}:{}", page, per_page);
+                    let _ = cache.delete(&list_key).await;
+                }
+            }
+            let _ = cache.delete("files:search:*").await.ok();
+            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_invalidate_on_upload"]).inc();
+        }
+
         return Ok(HttpResponse::Ok().json(serde_json::json!({
             "id": file_id,
             "filename": original_filename,
@@ -97,7 +111,7 @@ pub async fn upload_file(
     Err(AppError::BadRequest("No file uploaded".to_string()))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FileMetadataResponse {
     id: String,
     filename: String,
@@ -114,7 +128,21 @@ pub async fn get_file_metadata(
     path: web::Path<String>,
 ) -> AppResult<HttpResponse> {
     let file_id = path.into_inner();
+    let cache_key = format!("file:metadata:{}", file_id);
 
+    // Try to get from cache first (Wave 4 Day 13)
+    if let Some(cache) = &app_state.cache {
+        if let Ok(Some(cached)) = cache.get::<FileMetadataResponse>(&cache_key).await {
+            REDIS_CACHE_HITS_TOTAL.inc();
+            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_metadata_cache_hit"]).inc();
+            return Ok(HttpResponse::Ok().json(cached));
+        } else {
+            REDIS_CACHE_MISSES_TOTAL.inc();
+            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_metadata_cache_miss"]).inc();
+        }
+    }
+
+    // Fetch from database
     let file = sqlx::query_as::<_, (String, String, String, i64, String, String, bool)>(
         "SELECT id, filename, original_name, size, mime_type, created_at, is_public FROM files WHERE id = ?"
     )
@@ -124,7 +152,7 @@ pub async fn get_file_metadata(
     .map_err(|e| AppError::Database(e.to_string()))?
     .ok_or(AppError::NotFound)?;
 
-    Ok(HttpResponse::Ok().json(FileMetadataResponse {
+    let response = FileMetadataResponse {
         id: file.0,
         filename: file.1,
         original_name: file.2,
@@ -132,7 +160,16 @@ pub async fn get_file_metadata(
         mime_type: file.4,
         created_at: file.5,
         is_public: file.6,
-    }))
+    };
+
+    // Cache the response (TTL: 1 hour)
+    if let Some(cache) = &app_state.cache {
+        let ttl = app_state.get_ttl_config().file_metadata();
+        let _ = cache.set(&cache_key, &response, Some(ttl)).await;
+        REDIS_OPERATIONS_TOTAL.with_label_values(&["api_metadata_cache_set"]).inc();
+    }
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 #[get("/files/{id}/download")]
@@ -212,6 +249,27 @@ pub async fn delete_file(
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
 
+    // Invalidate caches (Wave 4 Day 13)
+    if let Some(cache) = &app_state.cache {
+        // Invalidate file metadata cache
+        let metadata_key = format!("file:metadata:{}", file_id);
+        let _ = cache.delete(&metadata_key).await;
+
+        // Invalidate all list caches (all pages)
+        // Note: In production, use SCAN command to find all matching keys
+        for page in 1..=10 {
+            for per_page in [10, 20, 50] {
+                let list_key = format!("files:list:{}:{}", page, per_page);
+                let _ = cache.delete(&list_key).await;
+            }
+        }
+
+        // Invalidate search caches
+        let _ = cache.delete("files:search:*").await.ok();
+
+        REDIS_OPERATIONS_TOTAL.with_label_values(&["api_invalidate_on_delete"]).inc();
+    }
+
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "status": "success",
         "message": "File deleted successfully"
@@ -232,7 +290,21 @@ pub async fn list_files(
     let page = query.page.unwrap_or(1);
     let per_page = query.per_page.unwrap_or(20).min(100);
     let offset = (page - 1) * per_page;
+    let cache_key = format!("files:list:{}:{}", page, per_page);
 
+    // Try to get from cache first (Wave 4 Day 13)
+    if let Some(cache) = &app_state.cache {
+        if let Ok(Some(cached)) = cache.get::<serde_json::Value>(&cache_key).await {
+            REDIS_CACHE_HITS_TOTAL.inc();
+            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_list_cache_hit"]).inc();
+            return Ok(HttpResponse::Ok().json(cached));
+        } else {
+            REDIS_CACHE_MISSES_TOTAL.inc();
+            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_list_cache_miss"]).inc();
+        }
+    }
+
+    // Fetch from database
     let files = sqlx::query_as::<_, (String, String, i64, String, String)>(
         "SELECT id, filename, size, mime_type, created_at FROM files ORDER BY created_at DESC LIMIT ? OFFSET ?"
     )
@@ -259,7 +331,7 @@ pub async fn list_files(
         }))
         .collect();
 
-    Ok(HttpResponse::Ok().json(serde_json::json!({
+    let response = serde_json::json!({
         "files": file_list,
         "pagination": {
             "page": page,
@@ -267,7 +339,16 @@ pub async fn list_files(
             "total": total.0,
             "total_pages": (total.0 + (per_page as i64) - 1) / (per_page as i64),
         }
-    })))
+    });
+
+    // Cache the response (TTL: 30 minutes)
+    if let Some(cache) = &app_state.cache {
+        let ttl = app_state.get_ttl_config().file_list();
+        let _ = cache.set(&cache_key, &response, Some(ttl)).await;
+        REDIS_OPERATIONS_TOTAL.with_label_values(&["api_list_cache_set"]).inc();
+    }
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 #[derive(Debug)]
