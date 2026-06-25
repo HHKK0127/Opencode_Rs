@@ -1,6 +1,5 @@
 use actix_web::{web, App, HttpServer, HttpResponse};
-use sqlx::sqlite::SqlitePool;
-use std::path::Path;
+use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use rand_core::OsRng;
@@ -43,21 +42,20 @@ async fn main() -> std::io::Result<()> {
     // Ensure uploads directory exists
     let _ = std::fs::create_dir_all(&settings.upload.directory);
 
-    let db_path = &settings.database.path;
+    // Resolve DATABASE_URL: env var takes precedence over config file
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| settings.database.url.clone());
 
-    // Always initialize/update schema (CREATE TABLE IF NOT EXISTS is idempotent)
-    if !Path::new(db_path).exists() {
-        std::fs::File::create(db_path).expect("Failed to create DB file");
-    }
-    initialize_db(db_path).await.expect("Failed to initialize DB");
-    println!("✅ Database schema ready");
-
-    let database_url = format!("sqlite://{}", db_path);
-    let pool = SqlitePool::connect(&database_url)
+    // Connect to PostgreSQL
+    let pool = PgPool::connect(&database_url)
         .await
-        .expect("Failed to create pool");
+        .expect("Failed to connect to PostgreSQL. Set DATABASE_URL env var.");
 
-    println!("✅ Database connected: {}", db_path);
+    println!("✅ Database connected: {}", database_url.split('@').last().unwrap_or("(hidden)"));
+
+    // Initialize schema
+    initialize_db(&pool).await.expect("Failed to initialize DB schema");
+    println!("✅ Database schema ready");
 
     // Initialize Redis cache (Wave 4)
     let redis_url = std::env::var("REDIS_URL")
@@ -80,64 +78,34 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
-    // Skip migration system: full schema created in initialize_db
-    // db::init_database(&pool).await.expect("Failed to initialize database schema");
-
-    // Apply performance optimizations
+    // Apply database optimizations
     db::optimize_database(&pool)
         .await
         .expect("Failed to apply database optimizations");
 
-    // Analyze tables for query optimization
     db::analyze_tables(&pool)
         .await
         .expect("Failed to analyze database tables");
 
-    // Get and display database stats
+    // Display database stats
     match db::get_database_stats(&pool).await {
         Ok(stats) => {
-            println!("📊 Database Stats: {} pages × {} bytes = {:.2}MB",
-                stats.page_count,
-                stats.page_size,
-                stats.total_size_bytes as f64 / (1024.0 * 1024.0)
-            );
-            println!("   Journal mode: {}", stats.journal_mode);
+            println!("📊 Database: {:.2} MB (journal: {})",
+                stats.total_size_bytes as f64 / (1024.0 * 1024.0),
+                stats.journal_mode);
         }
         Err(e) => eprintln!("⚠️  Failed to get database stats: {}", e),
     }
 
-    // Display migration history
-    match db::get_migration_history(&pool).await {
-        Ok(migrations) => {
-            println!("📈 Migration History:");
-            for m in migrations {
-                println!("   [{}] {} ({}ms)", m.version, m.description, m.execution_time);
-            }
-        }
-        Err(e) => eprintln!("⚠️  Failed to get migration history: {}", e),
-    }
-
     println!("🔄 Starting server on http://{}:{}", settings.server.host, settings.server.port);
 
-    // Initialize StorageBackend (Wave 3 - Local for dev, S3 for prod)
-    let storage_backend: Arc<dyn storage::StorageBackend> = if std::env::var("ENVIRONMENT")
-        .unwrap_or_else(|_| "development".to_string())
-        == "production"
-    {
-        // Production: S3/MinIO backend
-        // TODO: Initialize S3StorageBackend from config
-        Arc::new(storage::local_backend::LocalStorageBackend::new(
-            &settings.upload.directory,
-        ))
-    } else {
-        // Development: Local filesystem backend
-        Arc::new(storage::local_backend::LocalStorageBackend::new(
-            &settings.upload.directory,
-        ))
-    };
+    // Initialize StorageBackend (Local for dev, S3 for prod)
+    let storage_backend: Arc<dyn storage::StorageBackend> = Arc::new(
+        storage::local_backend::LocalStorageBackend::new(&settings.upload.directory)
+    );
     println!("✅ StorageBackend initialized (Local)");
 
-    // Create AppState with cached settings
+    // Create AppState
     let app_state = app_state::AppState::new(
         settings.clone(),
         pool,
@@ -165,15 +133,10 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-// Root-level health check handlers
 async fn health_check_handler() -> HttpResponse {
     use serde::Serialize;
     #[derive(Serialize)]
-    struct HealthStatus {
-        status: String,
-        version: String,
-        timestamp: String,
-    }
+    struct HealthStatus { status: String, version: String, timestamp: String }
     HttpResponse::Ok().json(HealthStatus {
         status: "healthy".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -183,12 +146,10 @@ async fn health_check_handler() -> HttpResponse {
 
 async fn db_health_check_handler(app_state: web::Data<app_state::AppState>) -> HttpResponse {
     match sqlx::query("SELECT 1").fetch_one(&app_state.db).await {
-        Ok(_) => {
-            HttpResponse::Ok().json(serde_json::json!({
-                "status": "database_connected",
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            }))
-        }
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
+            "status": "database_connected",
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
         Err(e) => {
             eprintln!("Database health check failed: {}", e);
             HttpResponse::ServiceUnavailable().json(serde_json::json!({
@@ -200,9 +161,8 @@ async fn db_health_check_handler(app_state: web::Data<app_state::AppState>) -> H
     }
 }
 
-async fn initialize_db(db_path: &str) -> Result<(), sqlx::Error> {
-    let pool = SqlitePool::connect(&format!("sqlite://{}", db_path)).await?;
-
+async fn initialize_db(pool: &PgPool) -> Result<(), sqlx::Error> {
+    // Users table
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS users (
@@ -213,23 +173,24 @@ async fn initialize_db(db_path: &str) -> Result<(), sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
 
+    // Files table (full schema — avoids ALTER TABLE drift)
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
             filename TEXT NOT NULL,
             original_name TEXT,
-            size INTEGER NOT NULL,
+            size BIGINT NOT NULL,
             mime_type TEXT,
             checksum TEXT,
-            path TEXT NOT NULL,
+            path TEXT,
             user_id TEXT,
             description TEXT,
             tags TEXT,
-            is_public BOOLEAN DEFAULT 0,
+            is_public BOOLEAN DEFAULT FALSE,
             expires_at TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             s3_path TEXT,
@@ -240,10 +201,29 @@ async fn initialize_db(db_path: &str) -> Result<(), sqlx::Error> {
         )
         "#,
     )
-    .execute(&pool)
+    .execute(pool)
     .await?;
 
-    // Create test user: testuser / testpassword
+    // Upload sessions table
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS upload_sessions (
+            id TEXT PRIMARY KEY,
+            file_id TEXT,
+            user_id TEXT,
+            total_size BIGINT NOT NULL,
+            uploaded_size BIGINT DEFAULT 0,
+            chunk_size BIGINT DEFAULT 1048576,
+            status TEXT CHECK (status IN ('pending', 'uploading', 'completed', 'failed')),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    // Create test user (idempotent)
     let salt = SaltString::generate(OsRng);
     let argon2 = Argon2::default();
     let password_hash = argon2
@@ -252,12 +232,12 @@ async fn initialize_db(db_path: &str) -> Result<(), sqlx::Error> {
         .to_string();
 
     sqlx::query(
-        "INSERT OR IGNORE INTO users (id, username, password_hash) VALUES (?, ?, ?)"
+        "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
     )
     .bind("test-user-1")
     .bind("testuser")
     .bind(&password_hash)
-    .execute(&pool)
+    .execute(pool)
     .await?;
 
     Ok(())

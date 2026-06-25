@@ -6,7 +6,7 @@ port = 8080
 workers = 8
 
 [database]
-path = "/data/opencode.db"
+url = "postgres://postgres:postgres@postgres:5432/opencode"
 auto_init = true
 max_connections = 20
 

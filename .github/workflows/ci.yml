@@ -39,7 +39,7 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
 
-  # ── Unit Tests ───────────────────────────────────────────────────────────────
+  # ── Unit Tests (no external services required) ───────────────────────────────
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -59,17 +59,27 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
-      - name: cargo test (lib unit tests)
+      - name: cargo test (lib unit tests — connect_lazy, no DB required)
         run: cargo test --lib -- --test-threads=4
 
-      - name: cargo test (health endpoints)
-        run: cargo test --test wave5_health_tests -- --test-threads=4
-
-  # ── Integration Tests (with Redis) ───────────────────────────────────────────
+  # ── Integration Tests (PostgreSQL + Redis) ────────────────────────────────────
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
     services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: opencode_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
       redis:
         image: redis:7-alpine
         options: >-
@@ -98,7 +108,18 @@ jobs:
       - name: cargo test (Redis cache tests)
         env:
           REDIS_URL: redis://127.0.0.1:6379
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
         run: cargo test --lib cache::redis::tests -- --test-threads=1 --nocapture
+
+      - name: cargo test (Wave 5 health endpoint tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test wave5_health_tests -- --test-threads=1
+
+      - name: cargo test (Wave 5 final smoke tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test wave5_final_smoke -- --test-threads=1
 
   # ── Release Build ─────────────────────────────────────────────────────────────
   build:

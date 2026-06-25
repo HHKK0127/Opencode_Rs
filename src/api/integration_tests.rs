@@ -9,14 +9,11 @@ mod integration_tests {
 
     fn create_test_app_state() -> AppState {
         let settings = Settings::default();
-        let db_url = "sqlite://poc_test.db";
-        let rt = tokio::runtime::Runtime::new().unwrap();
+        let db_url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
 
-        let db = rt.block_on(async {
-            sqlx::sqlite::SqlitePool::connect(db_url)
-                .await
-                .expect("Failed to connect to database")
-        });
+        let db = sqlx::postgres::PgPool::connect_lazy(&db_url)
+            .expect("Failed to build lazy pool");
 
         let storage = Arc::new(LocalStorageBackend::new("./uploads"));
         AppState::new(settings, db, storage, None)

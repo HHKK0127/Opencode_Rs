@@ -1,23 +1,16 @@
-use sqlx::{sqlite::SqlitePool, Row};
+use sqlx::{PgPool, Row};
 use log::info;
 
 /// Initialize database with initial schema and migrations
-pub async fn init_database(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn init_database(pool: &PgPool) -> Result<(), Box<dyn std::error::Error>> {
     info!("Initializing database schema...");
-
-    // Create migration history table
     create_migration_history_table(pool).await?;
-
-    // Run all pending migrations
     run_all_migrations(pool).await?;
-
     info!("Database initialization completed");
-
     Ok(())
 }
 
-/// Create migration history tracking table
-async fn create_migration_history_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+async fn create_migration_history_table(pool: &PgPool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS _sqlx_migrations (
@@ -33,12 +26,10 @@ async fn create_migration_history_table(pool: &SqlitePool) -> Result<(), sqlx::E
     .await?;
 
     info!("✓ Migration history table ready");
-
     Ok(())
 }
 
-/// Track and execute migrations
-async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+async fn run_all_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
     let migrations = vec![
         (1, "001_create_users_table", include_str!("../../migrations/001_create_users_table.sql")),
         (2, "002_create_files_table", include_str!("../../migrations/002_create_files_table.sql")),
@@ -56,7 +47,8 @@ async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
             let duration = start.elapsed();
 
             sqlx::query(
-                "INSERT INTO _sqlx_migrations (version, description, execution_time, success) VALUES (?, ?, ?, ?)"
+                "INSERT INTO _sqlx_migrations (version, description, execution_time, success)
+                 VALUES ($1, $2, $3, $4)"
             )
             .bind(version as i64)
             .bind(name)
@@ -72,10 +64,9 @@ async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-/// Check if migration has been run
-async fn migration_exists(pool: &SqlitePool, version: i32) -> Result<bool, sqlx::Error> {
+async fn migration_exists(pool: &PgPool, version: i32) -> Result<bool, sqlx::Error> {
     let result: Option<(i64,)> = sqlx::query_as(
-        "SELECT version FROM _sqlx_migrations WHERE version = ?"
+        "SELECT version FROM _sqlx_migrations WHERE version = $1"
     )
     .bind(version as i64)
     .fetch_optional(pool)
@@ -84,22 +75,16 @@ async fn migration_exists(pool: &SqlitePool, version: i32) -> Result<bool, sqlx:
     Ok(result.is_some())
 }
 
-/// Get migration history
-pub async fn get_migration_history(pool: &SqlitePool) -> Result<Vec<MigrationRecord>, sqlx::Error> {
+pub async fn get_migration_history(pool: &PgPool) -> Result<Vec<MigrationRecord>, sqlx::Error> {
     let records = sqlx::query_as::<_, (i64, String, String, i64, bool)>(
-        "SELECT version, description, installed_on, execution_time, success FROM _sqlx_migrations ORDER BY version ASC"
+        "SELECT version, description, installed_on::text, execution_time, success
+         FROM _sqlx_migrations ORDER BY version ASC"
     )
     .fetch_all(pool)
     .await?;
 
     Ok(records.into_iter().map(|(version, description, installed_on, execution_time, success)| {
-        MigrationRecord {
-            version,
-            description,
-            installed_on,
-            execution_time,
-            success,
-        }
+        MigrationRecord { version, description, installed_on, execution_time, success }
     }).collect())
 }
 
@@ -110,18 +95,4 @@ pub struct MigrationRecord {
     pub installed_on: String,
     pub execution_time: i64,
     pub success: bool,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_migration_history_table_creation() {
-        let database_url = "sqlite::memory:";
-        let pool = SqlitePool::connect(database_url).await.unwrap();
-
-        let result = create_migration_history_table(&pool).await;
-        assert!(result.is_ok());
-    }
 }

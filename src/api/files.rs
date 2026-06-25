@@ -73,7 +73,7 @@ pub async fn upload_file(
             .map_err(|_| AppError::Internal)?;
 
         sqlx::query(
-            "INSERT INTO files (id, filename, original_name, size, mime_type, checksum) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO files (id, filename, original_name, size, mime_type, checksum) VALUES ($1, $2, $3, $4, $5, $6)"
         )
         .bind(&file_id)
         .bind(&original_filename)
@@ -144,7 +144,7 @@ pub async fn get_file_metadata(
 
     // Fetch from database
     let file = sqlx::query_as::<_, (String, String, String, i64, String, String, bool)>(
-        "SELECT id, filename, COALESCE(original_name, filename), size, COALESCE(mime_type, ''), uploaded_at, COALESCE(is_public, 0) FROM files WHERE id = ?"
+        "SELECT id, filename, COALESCE(original_name, filename), size, COALESCE(mime_type, ''), uploaded_at::text, COALESCE(is_public, false) FROM files WHERE id = $1"
     )
     .bind(&file_id)
     .fetch_optional(&app_state.db)
@@ -181,7 +181,7 @@ pub async fn download_file(
     let file_id = path.into_inner();
 
     let file = sqlx::query_as::<_, (String, String, i64)>(
-        "SELECT id, original_name, size FROM files WHERE id = ?"
+        "SELECT id, original_name, size FROM files WHERE id = $1"
     )
     .bind(&file_id)
     .fetch_optional(&app_state.db)
@@ -230,7 +230,7 @@ pub async fn delete_file(
     let file_id = path.into_inner();
 
     sqlx::query_as::<_, (String,)>(
-        "SELECT id FROM files WHERE id = ?"
+        "SELECT id FROM files WHERE id = $1"
     )
     .bind(&file_id)
     .fetch_optional(&app_state.db)
@@ -243,7 +243,7 @@ pub async fn delete_file(
         .await
         .map_err(|_| AppError::Internal)?;
 
-    sqlx::query("DELETE FROM files WHERE id = ?")
+    sqlx::query("DELETE FROM files WHERE id = $1")
         .bind(&file_id)
         .execute(&app_state.db)
         .await
@@ -306,10 +306,10 @@ pub async fn list_files(
 
     // Fetch from database
     let files = sqlx::query_as::<_, (String, String, i64, String, String)>(
-        "SELECT id, filename, size, COALESCE(mime_type, ''), uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT ? OFFSET ?"
+        "SELECT id, filename, size, COALESCE(mime_type, ''), uploaded_at::text FROM files ORDER BY uploaded_at DESC LIMIT $1 OFFSET $2"
     )
-    .bind(per_page)
-    .bind(offset)
+    .bind(per_page as i64)
+    .bind(offset as i64)
     .fetch_all(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;

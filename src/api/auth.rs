@@ -25,7 +25,7 @@ pub async fn login(
     }
 
     let user = sqlx::query_as::<_, (String, String)>(
-        "SELECT id, password_hash FROM users WHERE username = ?"
+        "SELECT id, password_hash FROM users WHERE username = $1"
     )
     .bind(username)
     .fetch_optional(&app_state.db)
@@ -125,7 +125,7 @@ pub async fn register(
     let now = Utc::now().to_rfc3339();
 
     sqlx::query(
-        "INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)"
+        "INSERT INTO users (id, username, password_hash, created_at) VALUES ($1, $2, $3, $4)"
     )
     .bind(&user_id)
     .bind(username)

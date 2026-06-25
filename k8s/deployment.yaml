@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: opencode-secrets
                   key: redis-password
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opencode-secrets
+                  key: database-url
 
           # Kubernetes readiness probe — uses /health/ready (DB + cache check)
           readinessProbe:

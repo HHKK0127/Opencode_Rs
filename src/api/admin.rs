@@ -105,7 +105,7 @@ pub async fn vacuum_database(app_state: web::Data<AppState>) -> AppResult<HttpRe
 /// Requires authentication
 #[post("/admin/db/migrate")]
 pub async fn run_migrations(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
-    let database_url = format!("sqlite://{}", app_state.settings.database.path);
+    let database_url = app_state.settings.database.url.clone();
 
     match MigrationCli::run_migrations(&database_url) {
         Ok(output) => {
@@ -128,7 +128,7 @@ pub async fn run_migrations(app_state: web::Data<AppState>) -> AppResult<HttpRes
 /// Requires authentication
 #[post("/admin/db/migrate/revert")]
 pub async fn revert_migration(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
-    let database_url = format!("sqlite://{}", app_state.settings.database.path);
+    let database_url = app_state.settings.database.url.clone();
 
     match MigrationCli::revert_migration(&database_url) {
         Ok(output) => {
@@ -151,7 +151,7 @@ pub async fn revert_migration(app_state: web::Data<AppState>) -> AppResult<HttpR
 /// Requires authentication
 #[get("/admin/db/migrate/info")]
 pub async fn migration_info(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
-    let database_url = format!("sqlite://{}", app_state.settings.database.path);
+    let database_url = app_state.settings.database.url.clone();
 
     match MigrationCli::migration_info(&database_url) {
         Ok(info) => {
@@ -173,7 +173,7 @@ pub async fn migration_info(app_state: web::Data<AppState>) -> AppResult<HttpRes
 /// Requires authentication
 #[get("/admin/db/migrate/validate")]
 pub async fn validate_migrations(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
-    let database_url = format!("sqlite://{}", app_state.settings.database.path);
+    let database_url = app_state.settings.database.url.clone();
 
     match MigrationCli::validate_migrations(&database_url) {
         Ok(valid) => {

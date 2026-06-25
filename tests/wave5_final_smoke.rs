@@ -9,13 +9,16 @@ use opencode_poc::{
     middleware_cors::configure_cors,
     storage::local_backend::LocalStorageBackend,
 };
-use sqlx::sqlite::SqlitePool;
+use sqlx::postgres::PgPool;
 use std::sync::Arc;
 
 async fn create_state() -> AppState {
-    let pool = SqlitePool::connect("sqlite::memory:")
+    let db_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+
+    let pool = PgPool::connect(&db_url)
         .await
-        .expect("in-memory DB");
+        .expect("PostgreSQL connection required. Set DATABASE_URL env var.");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
@@ -34,18 +37,35 @@ async fn create_state() -> AppState {
             id TEXT PRIMARY KEY,
             filename TEXT NOT NULL,
             original_name TEXT,
-            size INTEGER NOT NULL,
+            size BIGINT NOT NULL,
             mime_type TEXT,
             checksum TEXT,
-            path TEXT NOT NULL,
+            path TEXT,
             user_id TEXT,
-            is_public BOOLEAN DEFAULT 0,
+            is_public BOOLEAN DEFAULT FALSE,
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )",
     )
     .execute(&pool)
     .await
     .expect("files table");
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS upload_sessions (
+            id TEXT PRIMARY KEY,
+            file_id TEXT,
+            user_id TEXT,
+            total_size BIGINT NOT NULL,
+            uploaded_size BIGINT DEFAULT 0,
+            chunk_size BIGINT DEFAULT 1048576,
+            status TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+    )
+    .execute(&pool)
+    .await
+    .expect("upload_sessions table");
 
     let settings = Settings::default();
     let storage: Arc<dyn opencode_poc::storage::StorageBackend> =

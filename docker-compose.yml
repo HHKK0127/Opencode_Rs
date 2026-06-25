@@ -13,13 +13,13 @@ services:
       RUST_LOG: info
       OPENCODE__SERVER__HOST: 0.0.0.0
       OPENCODE__SERVER__PORT: "8080"
-      OPENCODE__DATABASE__PATH: /data/poc.db
       OPENCODE__DATABASE__AUTO_INIT: "true"
       OPENCODE__DATABASE__MAX_CONNECTIONS: "20"
       OPENCODE__UPLOAD__DIRECTORY: /data/uploads
       OPENCODE__UPLOAD__MAX_FILE_SIZE_MB: "50"
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars}
       REDIS_URL: redis://:${REDIS_PASSWORD:-test_password}@redis:6379
+      DATABASE_URL: postgres://${POSTGRES_USER:-opencode}:${POSTGRES_PASSWORD:-opencode_password}@postgres:5432/${POSTGRES_DB:-opencode}
     volumes:
       - opencode-data:/data
       - ./config:/app/config:ro
@@ -30,8 +30,31 @@ services:
       retries: 3
       start_period: 15s
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - opencode-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: opencode-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opencode}
+      POSTGRES_USER: ${POSTGRES_USER:-opencode}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opencode_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-opencode}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - opencode-network
     restart: unless-stopped
@@ -56,6 +79,7 @@ services:
 
 volumes:
   opencode-data:
+  postgres-data:
   redis-data:
 
 networks:

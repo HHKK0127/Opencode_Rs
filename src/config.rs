@@ -11,7 +11,7 @@ pub struct Server {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Database {
-    pub path: String,
+    pub url: String,
     pub auto_init: bool,
     pub max_connections: u32,
 }
@@ -160,7 +160,8 @@ impl Default for Settings {
                 workers: 4,
             },
             database: Database {
-                path: "./poc_test.db".to_string(),
+                url: std::env::var("DATABASE_URL")
+                    .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode".to_string()),
                 auto_init: true,
                 max_connections: 5,
             },

@@ -70,7 +70,7 @@ pub async fn init_chunked_upload(
 
     sqlx::query(
         "INSERT INTO upload_sessions (id, file_id, total_size, uploaded_size, chunk_size, status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)"
+         VALUES ($1, $2, $3, $4, $5, $6, $7)"
     )
     .bind(&session_id)
     .bind(&file_id)
@@ -99,7 +99,7 @@ pub async fn upload_chunk(
     let upload_dir = &app_state.settings.upload.directory;
 
     let session = sqlx::query_as::<_, (String, String, i64, i64, i64)>(
-        "SELECT id, file_id, total_size, uploaded_size, chunk_size FROM upload_sessions WHERE id = ?"
+        "SELECT id, file_id, total_size, uploaded_size, chunk_size FROM upload_sessions WHERE id = $1"
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
@@ -145,7 +145,7 @@ pub async fn upload_chunk(
     }
 
     sqlx::query(
-        "UPDATE upload_sessions SET uploaded_size = ? WHERE id = ?"
+        "UPDATE upload_sessions SET uploaded_size = $1 WHERE id = $2"
     )
     .bind(new_uploaded_size)
     .bind(&session_id)
@@ -176,7 +176,7 @@ pub async fn complete_chunked_upload(
     let upload_dir = &app_state.settings.upload.directory;
 
     let session = sqlx::query_as::<_, (String, String, i64, i64)>(
-        "SELECT id, file_id, total_size, uploaded_size FROM upload_sessions WHERE id = ?"
+        "SELECT id, file_id, total_size, uploaded_size FROM upload_sessions WHERE id = $1"
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
@@ -229,7 +229,7 @@ pub async fn complete_chunked_upload(
 
     sqlx::query(
         "INSERT INTO files (id, filename, original_name, size, mime_type, path, checksum)
-         VALUES (?, ?, ?, ?, ?, ?, ?)"
+         VALUES ($1, $2, $3, $4, $5, $6, $7)"
     )
     .bind(&file_id)
     .bind(&final_filename)
@@ -243,7 +243,7 @@ pub async fn complete_chunked_upload(
     .map_err(|e| AppError::Database(e.to_string()))?;
 
     sqlx::query(
-        "UPDATE upload_sessions SET status = ? WHERE id = ?"
+        "UPDATE upload_sessions SET status = $1 WHERE id = $2"
     )
     .bind("completed")
     .bind(&session_id)
@@ -267,7 +267,7 @@ pub async fn get_upload_session(
     let session_id = path.into_inner();
 
     let session = sqlx::query_as::<_, (String, String, i64, i64, i64, String, String)>(
-        "SELECT id, file_id, total_size, uploaded_size, chunk_size, status, created_at FROM upload_sessions WHERE id = ?"
+        "SELECT id, file_id, total_size, uploaded_size, chunk_size, status, created_at::text FROM upload_sessions WHERE id = $1"
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)

@@ -1,17 +1,14 @@
 use crate::cache::{RedisCache, CacheAsideStrategy, WriteThroughStrategy, CacheTTLConfig, CacheInvalidationManager};
 use crate::config::Settings;
 use crate::storage::StorageBackend;
-use sqlx::SqlitePool;
+use sqlx::PgPool;
 use std::sync::Arc;
 
-/// Application state container
-/// Caches configuration, database connection pool, storage backend, and Redis cache
-/// Shared across all requests via web::Data<AppState>
+/// Application state container shared across all requests via web::Data<AppState>
 #[derive(Clone)]
 pub struct AppState {
     pub settings: Arc<Settings>,
-    pub db: SqlitePool,
-    /// Unified storage backend (Local for dev, S3/MinIO for prod)
+    pub db: PgPool,
     pub storage: Arc<dyn StorageBackend>,
     /// Optional Redis cache (Wave 4)
     pub cache: Option<Arc<RedisCache>>,
@@ -22,7 +19,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         settings: Settings,
-        db: SqlitePool,
+        db: PgPool,
         storage: Arc<dyn StorageBackend>,
         cache: Option<Arc<RedisCache>>,
     ) -> Self {
@@ -55,9 +52,14 @@ impl AppState {
         format!("{}:{}", self.settings.server.host, self.settings.server.port)
     }
 
-    /// Get database path from cached settings
+    /// Get database URL from cached settings
+    pub fn db_url(&self) -> &str {
+        &self.settings.database.url
+    }
+
+    /// Alias for backward compatibility
     pub fn db_path(&self) -> &str {
-        &self.settings.database.path
+        &self.settings.database.url
     }
 
     /// Get upload directory from cached settings

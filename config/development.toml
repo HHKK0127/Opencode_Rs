@@ -6,7 +6,7 @@ port = 8080
 workers = 4
 
 [database]
-path = "./poc_test.db"
+url = "postgres://postgres:postgres@localhost:5432/opencode_dev"
 auto_init = true
 max_connections = 5
 

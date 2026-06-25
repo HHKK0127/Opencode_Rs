@@ -1,19 +1,38 @@
 use actix_web::{test, web, App};
 use opencode_poc::{api, app_state::AppState, config::Settings, storage::local_backend::LocalStorageBackend};
-use sqlx::sqlite::SqlitePool;
+use sqlx::postgres::PgPool;
 use std::sync::Arc;
 
 async fn setup_test_state() -> AppState {
-    let pool = SqlitePool::connect("sqlite::memory:")
+    let db_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+
+    let pool = PgPool::connect(&db_url)
         .await
-        .expect("in-memory DB");
+        .expect("PostgreSQL connection required. Set DATABASE_URL env var.");
 
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+        "CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"
     ).execute(&pool).await.expect("users table");
 
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS files (id TEXT PRIMARY KEY, filename TEXT NOT NULL, original_name TEXT, size INTEGER NOT NULL, mime_type TEXT, checksum TEXT, path TEXT NOT NULL, user_id TEXT, is_public BOOLEAN DEFAULT 0, uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+        "CREATE TABLE IF NOT EXISTS files (
+            id TEXT PRIMARY KEY,
+            filename TEXT NOT NULL,
+            original_name TEXT,
+            size BIGINT NOT NULL,
+            mime_type TEXT,
+            checksum TEXT,
+            path TEXT,
+            user_id TEXT,
+            is_public BOOLEAN DEFAULT FALSE,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"
     ).execute(&pool).await.expect("files table");
 
     let settings = Settings::default();
@@ -110,7 +129,6 @@ async fn test_health_live_no_auth_required() {
     )
     .await;
 
-    // No Authorization header — should still return 200
     let req = test::TestRequest::get()
         .uri("/api/v1/health/live")
         .to_request();
@@ -121,7 +139,6 @@ async fn test_health_live_no_auth_required() {
 
 #[actix_rt::test]
 async fn test_health_ready_cache_unavailable_still_ready() {
-    // With no Redis configured, cache is unavailable but DB is ok — should be ready
     let state = setup_test_state().await;
     let app = test::init_service(
         App::new()
@@ -135,7 +152,6 @@ async fn test_health_ready_cache_unavailable_still_ready() {
         .to_request();
     let body: serde_json::Value = test::call_and_read_body_json(&app, req).await;
 
-    // DB ok → ready=true even though cache is unavailable
     assert_eq!(body["ready"], true);
     assert_eq!(body["components"]["cache"]["status"], "unavailable");
 }
@@ -160,7 +176,6 @@ async fn test_request_id_middleware_generates_header() {
     let request_id = resp.headers().get("x-request-id");
     assert!(request_id.is_some(), "x-request-id header should be present");
 
-    // Should be a valid UUID (36 chars: 8-4-4-4-12)
     let rid = request_id.unwrap().to_str().unwrap();
     assert_eq!(rid.len(), 36, "request id should be UUID format");
 }

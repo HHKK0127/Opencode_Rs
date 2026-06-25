@@ -15,7 +15,7 @@ pub struct UserResponse {
 pub async fn list_users(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
     let users = sqlx::query_as::<_, UserResponse>(
         r#"
-        SELECT id, username, created_at
+        SELECT id, username, created_at::text
         FROM users
         ORDER BY created_at DESC
         LIMIT 100
@@ -35,9 +35,9 @@ pub async fn get_user(
 ) -> AppResult<HttpResponse> {
     let user = sqlx::query_as::<_, UserResponse>(
         r#"
-        SELECT id, username, created_at
+        SELECT id, username, created_at::text
         FROM users
-        WHERE id = ?
+        WHERE id = $1
         "#
     )
     .bind(id.as_str())

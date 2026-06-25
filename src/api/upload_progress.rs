@@ -23,7 +23,7 @@ pub async fn get_upload_progress(
     let session_id = path.into_inner();
 
     let session = sqlx::query_as::<_, (String, String, i64, i64, String)>(
-        "SELECT id, file_id, total_size, uploaded_size, status FROM upload_sessions WHERE id = ?"
+        "SELECT id, file_id, total_size, uploaded_size, status FROM upload_sessions WHERE id = $1"
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
