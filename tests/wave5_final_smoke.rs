@@ -86,16 +86,19 @@ async fn smoke_register_and_login() {
     )
     .await;
 
+    let unique = uuid::Uuid::new_v4().to_string()[..8].to_string();
+    let username = format!("smoke_{}", unique);
+
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/register")
-        .set_json(serde_json::json!({"username": "smoke_user", "password": "SmokePass123!"}))
+        .set_json(serde_json::json!({"username": username, "password": "SmokePass123!"}))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_success(), "register: {}", resp.status());
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/login")
-        .set_json(serde_json::json!({"username": "smoke_user", "password": "SmokePass123!"}))
+        .set_json(serde_json::json!({"username": username, "password": "SmokePass123!"}))
         .to_request();
     let body: serde_json::Value = test::call_and_read_body_json(&app, req).await;
     assert!(body["token"].as_str().is_some(), "no token in login response");

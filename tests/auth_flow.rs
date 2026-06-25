@@ -14,10 +14,11 @@ async fn test_register_new_user_success() {
             .configure(api::configure)
     ).await;
 
+    let unique = uuid::Uuid::new_v4().to_string()[..8].to_string();
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/register")
         .set_json(&serde_json::json!({
-            "username": "newuser",
+            "username": format!("newuser_{}", unique),
             "password": "SecurePassword123"
         }))
         .to_request();

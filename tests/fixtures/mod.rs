@@ -1,17 +1,20 @@
 use opencode_poc::app_state::AppState;
 use opencode_poc::config::Settings;
-use opencode_poc::storage::s3_client::S3Client;
-use sqlx::sqlite::SqlitePool;
+use opencode_poc::storage::local_backend::LocalStorageBackend;
+use sqlx::postgres::PgPool;
 use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use rand_core::OsRng;
+use std::sync::Arc;
 
-/// Setup in-memory test database with schema
-pub async fn setup_test_db() -> SqlitePool {
-    let pool = SqlitePool::connect("sqlite::memory:")
+/// Connect to PostgreSQL and set up schema for tests
+pub async fn setup_test_db() -> PgPool {
+    let db_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+
+    let pool = PgPool::connect(&db_url)
         .await
-        .expect("Failed to create in-memory test database");
+        .expect("Failed to connect to PostgreSQL test database. Set DATABASE_URL.");
 
-    // Create tables
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS users (
@@ -31,8 +34,13 @@ pub async fn setup_test_db() -> SqlitePool {
         CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
             filename TEXT NOT NULL,
-            size INTEGER NOT NULL,
-            path TEXT NOT NULL,
+            original_name TEXT,
+            size BIGINT NOT NULL,
+            mime_type TEXT,
+            checksum TEXT,
+            path TEXT,
+            user_id TEXT,
+            is_public BOOLEAN DEFAULT FALSE,
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         "#,
@@ -41,21 +49,39 @@ pub async fn setup_test_db() -> SqlitePool {
     .await
     .expect("Failed to create files table");
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS upload_sessions (
+            id TEXT PRIMARY KEY,
+            file_id TEXT,
+            user_id TEXT,
+            total_size BIGINT NOT NULL,
+            uploaded_size BIGINT DEFAULT 0,
+            chunk_size BIGINT DEFAULT 1048576,
+            status TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .expect("Failed to create upload_sessions table");
+
     pool
 }
 
-/// Create test AppState with in-memory database
+/// Create test AppState backed by PostgreSQL
 pub async fn create_test_app_state() -> AppState {
     let pool = setup_test_db().await;
     let settings = Settings::default();
-    let s3_client = S3Client::new(&settings)
-        .await
-        .expect("Failed to initialize S3 client for tests");
-    AppState::new(settings, pool, s3_client)
+    let storage: Arc<dyn opencode_poc::storage::StorageBackend> =
+        Arc::new(LocalStorageBackend::new("./test_uploads"));
+    AppState::new(settings, pool, storage, None)
 }
 
-/// Create test user and return (username, password)
-pub async fn create_test_user(pool: &SqlitePool) -> (String, String) {
+/// Create test user and return (username, password, pool)
+pub async fn create_test_user(pool: &PgPool) -> (String, String) {
     let user_id = uuid::Uuid::new_v4().to_string();
     let username = format!("testuser_{}", &user_id[..8]);
     let password = "TestPassword123";
@@ -68,7 +94,7 @@ pub async fn create_test_user(pool: &SqlitePool) -> (String, String) {
         .to_string();
 
     sqlx::query(
-        "INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)"
+        "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3)"
     )
     .bind(&user_id)
     .bind(&username)

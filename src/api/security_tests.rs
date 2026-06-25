@@ -7,7 +7,7 @@ mod security_tests {
     use crate::error::AppError;
     use std::sync::Arc;
 
-    fn create_test_app_state() -> AppState {
+    async fn create_test_app_state() -> AppState {
         let settings = Settings::default();
         let db_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
@@ -49,33 +49,32 @@ mod security_tests {
         assert!(validator.validate_filename("data.csv").is_ok());
     }
 
-    #[test]
-    fn test_file_size_limit_enforcement() {
-        let app_state = create_test_app_state();
+    #[tokio::test]
+    async fn test_file_size_limit_enforcement() {
+        let app_state = create_test_app_state().await;
         let max_size = app_state.settings.upload.max_file_size_mb * 1024 * 1024;
         assert!(max_size > 0);
     }
 
-    #[test]
-    fn test_upload_directory_security() {
-        let app_state = create_test_app_state();
+    #[tokio::test]
+    async fn test_upload_directory_security() {
+        let app_state = create_test_app_state().await;
         let upload_dir = app_state.upload_dir();
         assert!(!upload_dir.contains(".."));
         assert!(!upload_dir.is_empty());
     }
 
-    #[test]
-    fn test_database_connection_pool() {
-        let app_state = create_test_app_state();
+    #[tokio::test]
+    async fn test_database_connection_pool() {
+        let app_state = create_test_app_state().await;
         let db_path = app_state.db_path();
         assert!(!db_path.is_empty());
-        assert!(db_path.contains(".db") || db_path.contains("test"));
+        assert!(db_path.contains("postgres") || db_path.contains("test"));
     }
 
-    #[test]
-    fn test_concurrent_request_limits_setup() {
-        let _app_state = create_test_app_state();
-        // Verify app state is properly configured for concurrent requests
-        assert!(true); // Setup verified if we reach here without panic
+    #[tokio::test]
+    async fn test_concurrent_request_limits_setup() {
+        let _app_state = create_test_app_state().await;
+        assert!(true);
     }
 }

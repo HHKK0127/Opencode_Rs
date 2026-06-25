@@ -125,16 +125,16 @@ pub async fn register(
     let now = Utc::now().to_rfc3339();
 
     sqlx::query(
-        "INSERT INTO users (id, username, password_hash, created_at) VALUES ($1, $2, $3, $4)"
+        "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3)"
     )
     .bind(&user_id)
     .bind(username)
     .bind(&password_hash)
-    .bind(&now)
     .execute(&app_state.db)
     .await
     .map_err(|e| {
-        if e.to_string().contains("UNIQUE") {
+        let msg = e.to_string().to_lowercase();
+        if msg.contains("unique") || msg.contains("duplicate") {
             AppError::Conflict("Username already exists".to_string())
         } else {
             AppError::Database(e.to_string())
