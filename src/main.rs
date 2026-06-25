@@ -60,7 +60,8 @@ async fn main() -> std::io::Result<()> {
     println!("✅ Database connected: {}", db_path);
 
     // Initialize Redis cache (Wave 4)
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let redis_url = std::env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://:test_password@127.0.0.1:6379".to_string());
     let redis_cache = cache::RedisCache::new(cache::RedisCacheConfig {
         url: redis_url.clone(),
         max_connections: 50,
@@ -150,6 +151,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(app_state.clone()))
             .wrap(middleware_cors::configure_cors())
             .wrap(actix_web::middleware::Logger::default())
+            .wrap(middleware::RequestId)
             .wrap(middleware::metrics::MetricsMiddleware)
             .wrap(auth_middleware::AuthMiddleware)
             .route("/health", web::get().to(health_check_handler))

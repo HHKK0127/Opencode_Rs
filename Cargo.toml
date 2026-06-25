@@ -52,7 +52,7 @@ config = "0.14"
 dotenvy = "0.15"
 
 # Redis (Wave 4)
-redis = { version = "0.24", features = ["aio", "tokio-comp"] }
+redis = { version = "0.24", features = ["aio", "tokio-comp", "connection-manager"] }
 tokio-util = "0.7"
 
 # Metrics & Monitoring

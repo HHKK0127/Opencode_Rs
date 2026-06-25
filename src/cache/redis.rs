@@ -1,17 +1,19 @@
-use redis::aio::Connection;
+use redis::aio::ConnectionManager;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use super::error::{CacheError, CacheResult};
-use super::metrics::{REDIS_COMMAND_DURATION_SECONDS, REDIS_ERRORS_TOTAL, REDIS_OPERATIONS_TOTAL, REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL};
+use super::metrics::{
+    REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL, REDIS_COMMAND_DURATION_SECONDS,
+    REDIS_ERRORS_TOTAL, REDIS_OPERATIONS_TOTAL,
+};
 
-/// Redis connection pool wrapper
+/// Redis cache using ConnectionManager for automatic reconnection and concurrency
 pub struct RedisCache {
-    conn: Arc<Mutex<Connection>>,
-    config: RedisCacheConfig,
+    manager: Arc<ConnectionManager>,
+    pub config: RedisCacheConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -21,32 +23,45 @@ pub struct RedisCacheConfig {
     pub connection_timeout_ms: u64,
 }
 
+impl Default for RedisCacheConfig {
+    fn default() -> Self {
+        Self {
+            url: "redis://127.0.0.1:6379".to_string(),
+            max_connections: 10,
+            connection_timeout_ms: 5000,
+        }
+    }
+}
+
 impl RedisCache {
-    /// Create new Redis cache instance
+    /// Create new Redis cache instance with ConnectionManager (auto-reconnect)
     pub async fn new(config: RedisCacheConfig) -> CacheResult<Self> {
         debug!("Connecting to Redis: {}", config.url);
 
-        let redis_client = redis::Client::open(config.url.as_str())
+        let client = redis::Client::open(config.url.as_str())
             .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
 
-        let conn = redis_client
-            .get_async_connection()
+        let manager = ConnectionManager::new(client)
             .await
             .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
 
-        info!("Redis connection established");
+        info!(
+            url = %config.url,
+            max_connections = config.max_connections,
+            "Redis ConnectionManager established"
+        );
 
         Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
+            manager: Arc::new(manager),
             config,
         })
     }
 
-    /// Health check - ping Redis server
+    /// Health check — PING Redis
     pub async fn health_check(&self) -> CacheResult<()> {
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.manager.as_ref().clone();
         let _: () = redis::cmd("PING")
-            .query_async(&mut *conn)
+            .query_async(&mut conn)
             .await
             .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
 
@@ -60,18 +75,20 @@ impl RedisCache {
         key: &str,
     ) -> CacheResult<Option<T>> {
         let start = Instant::now();
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.manager.as_ref().clone();
+
         let value: Option<String> = redis::cmd("GET")
             .arg(key)
-            .query_async(&mut *conn)
+            .query_async(&mut conn)
             .await
             .map_err(|e| {
                 REDIS_ERRORS_TOTAL.with_label_values(&["get"]).inc();
                 CacheError::RedisError(e)
             })?;
 
-        let duration = start.elapsed();
-        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["GET"]).observe(duration.as_secs_f64());
+        REDIS_COMMAND_DURATION_SECONDS
+            .with_label_values(&["GET"])
+            .observe(start.elapsed().as_secs_f64());
         REDIS_OPERATIONS_TOTAL.with_label_values(&["get"]).inc();
 
         match value {
@@ -89,7 +106,7 @@ impl RedisCache {
         }
     }
 
-    /// Set value in cache with TTL
+    /// Set value in cache with optional TTL
     pub async fn set<T: Serialize>(
         &self,
         key: &str,
@@ -98,7 +115,7 @@ impl RedisCache {
     ) -> CacheResult<()> {
         let start = Instant::now();
         let serialized = serde_json::to_string(value)?;
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.manager.as_ref().clone();
 
         match ttl {
             Some(duration) => {
@@ -108,7 +125,7 @@ impl RedisCache {
                     .arg(&serialized)
                     .arg("EX")
                     .arg(seconds)
-                    .query_async(&mut *conn)
+                    .query_async(&mut conn)
                     .await
                     .map_err(|e| {
                         REDIS_ERRORS_TOTAL.with_label_values(&["set"]).inc();
@@ -120,7 +137,7 @@ impl RedisCache {
                 let _: () = redis::cmd("SET")
                     .arg(key)
                     .arg(&serialized)
-                    .query_async(&mut *conn)
+                    .query_async(&mut conn)
                     .await
                     .map_err(|e| {
                         REDIS_ERRORS_TOTAL.with_label_values(&["set"]).inc();
@@ -130,8 +147,9 @@ impl RedisCache {
             }
         }
 
-        let duration = start.elapsed();
-        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["SET"]).observe(duration.as_secs_f64());
+        REDIS_COMMAND_DURATION_SECONDS
+            .with_label_values(&["SET"])
+            .observe(start.elapsed().as_secs_f64());
         REDIS_OPERATIONS_TOTAL.with_label_values(&["set"]).inc();
 
         Ok(())
@@ -140,18 +158,20 @@ impl RedisCache {
     /// Delete key from cache
     pub async fn delete(&self, key: &str) -> CacheResult<()> {
         let start = Instant::now();
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.manager.as_ref().clone();
+
         let _: u32 = redis::cmd("DEL")
             .arg(key)
-            .query_async(&mut *conn)
+            .query_async(&mut conn)
             .await
             .map_err(|e| {
                 REDIS_ERRORS_TOTAL.with_label_values(&["delete"]).inc();
                 CacheError::RedisError(e)
             })?;
 
-        let duration = start.elapsed();
-        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["DEL"]).observe(duration.as_secs_f64());
+        REDIS_COMMAND_DURATION_SECONDS
+            .with_label_values(&["DEL"])
+            .observe(start.elapsed().as_secs_f64());
         REDIS_OPERATIONS_TOTAL.with_label_values(&["delete"]).inc();
 
         debug!("Cache deleted: {}", key);
@@ -161,43 +181,42 @@ impl RedisCache {
     /// Check if key exists
     pub async fn exists(&self, key: &str) -> CacheResult<bool> {
         let start = Instant::now();
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.manager.as_ref().clone();
+
         let exists: bool = redis::cmd("EXISTS")
             .arg(key)
-            .query_async(&mut *conn)
+            .query_async(&mut conn)
             .await
             .map_err(|e| {
                 REDIS_ERRORS_TOTAL.with_label_values(&["exists"]).inc();
                 CacheError::RedisError(e)
             })?;
 
-        let duration = start.elapsed();
-        REDIS_COMMAND_DURATION_SECONDS.with_label_values(&["EXISTS"]).observe(duration.as_secs_f64());
+        REDIS_COMMAND_DURATION_SECONDS
+            .with_label_values(&["EXISTS"])
+            .observe(start.elapsed().as_secs_f64());
         REDIS_OPERATIONS_TOTAL.with_label_values(&["exists"]).inc();
 
         Ok(exists)
     }
 
-    /// Get Redis info for monitoring
+    /// Get Redis INFO for monitoring
     pub async fn get_info(&self) -> CacheResult<String> {
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.manager.as_ref().clone();
         let info: String = redis::cmd("INFO")
-            .query_async(&mut *conn)
+            .query_async(&mut conn)
             .await
             .map_err(|e| CacheError::RedisError(e))?;
-
         Ok(info)
     }
 
-    /// Flush all keys (dangerous - use with caution)
     #[allow(dead_code)]
     pub async fn flush_all(&self) -> CacheResult<()> {
-        let mut conn = self.conn.lock().await;
+        let mut conn = self.manager.as_ref().clone();
         let _: () = redis::cmd("FLUSHALL")
-            .query_async(&mut *conn)
+            .query_async(&mut conn)
             .await
             .map_err(|e| CacheError::RedisError(e))?;
-
         warn!("Redis cache flushed!");
         Ok(())
     }
@@ -208,12 +227,14 @@ mod tests {
     use super::*;
 
     async fn create_test_redis() -> CacheResult<RedisCache> {
-        let config = RedisCacheConfig {
-            url: "redis://127.0.0.1:6379".to_string(),
+        let url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://:test_password@127.0.0.1:6379".to_string());
+        RedisCache::new(RedisCacheConfig {
+            url,
             max_connections: 10,
             connection_timeout_ms: 5000,
-        };
-        RedisCache::new(config).await
+        })
+        .await
     }
 
     #[tokio::test]
@@ -225,58 +246,64 @@ mod tests {
     #[tokio::test]
     async fn test_health_check() {
         let redis = create_test_redis().await.expect("Redis connection failed");
-        let result = redis.health_check().await;
-        assert!(result.is_ok(), "Health check should pass");
+        assert!(redis.health_check().await.is_ok());
     }
 
     #[tokio::test]
     async fn test_set_get() {
         let redis = create_test_redis().await.expect("Redis connection failed");
-        let key = "test:key";
-        let value = serde_json::json!({"message": "hello"});
+        let key = "test:key:wave5";
+        let value = serde_json::json!({"message": "hello wave5"});
 
-        let set_result = redis.set(key, &value, None).await;
-        assert!(set_result.is_ok(), "Set should succeed");
-
-        let get_result: CacheResult<Option<serde_json::Value>> = redis.get(key).await;
-        assert!(get_result.is_ok(), "Get should succeed");
-        assert_eq!(get_result.unwrap(), Some(value));
-
+        assert!(redis.set(key, &value, None).await.is_ok());
+        let got: CacheResult<Option<serde_json::Value>> = redis.get(key).await;
+        assert_eq!(got.unwrap(), Some(value));
         let _ = redis.delete(key).await;
     }
 
     #[tokio::test]
     async fn test_ttl_expiration() {
         let redis = create_test_redis().await.expect("Redis connection failed");
-        let key = "test:ttl";
+        let key = "test:ttl:wave5";
         let value = serde_json::json!({"data": "temporary"});
 
         let _ = redis.set(key, &value, Some(Duration::from_secs(1))).await;
-
-        let exists = redis.exists(key).await.unwrap();
-        assert!(exists, "Key should exist immediately after set");
+        assert!(redis.exists(key).await.unwrap());
 
         tokio::time::sleep(Duration::from_millis(1100)).await;
-
-        let exists = redis.exists(key).await.unwrap();
-        assert!(!exists, "Key should be expired after TTL");
+        assert!(!redis.exists(key).await.unwrap());
     }
 
     #[tokio::test]
     async fn test_delete() {
         let redis = create_test_redis().await.expect("Redis connection failed");
-        let key = "test:delete";
-        let value = serde_json::json!({"delete": true});
+        let key = "test:delete:wave5";
+        let _ = redis.set(key, &serde_json::json!(true), None).await;
+        assert!(redis.exists(key).await.unwrap());
+        assert!(redis.delete(key).await.is_ok());
+        assert!(!redis.exists(key).await.unwrap());
+    }
 
-        let _ = redis.set(key, &value, None).await;
-        assert!(redis.exists(key).await.unwrap(), "Key should exist");
-
-        let delete_result = redis.delete(key).await;
-        assert!(delete_result.is_ok(), "Delete should succeed");
-
-        assert!(
-            !redis.exists(key).await.unwrap(),
-            "Key should not exist after delete"
+    #[tokio::test]
+    async fn test_concurrent_access() {
+        let redis = std::sync::Arc::new(
+            create_test_redis().await.expect("Redis connection failed")
         );
+        let mut handles = vec![];
+
+        for i in 0..10 {
+            let r = redis.clone();
+            handles.push(tokio::spawn(async move {
+                let key = format!("test:concurrent:{}", i);
+                let _ = r.set(&key, &i, Some(Duration::from_secs(5))).await;
+                let got: CacheResult<Option<i32>> = r.get(&key).await;
+                let _ = r.delete(&key).await;
+                got.unwrap() == Some(i)
+            }));
+        }
+
+        for h in handles {
+            assert!(h.await.unwrap(), "Concurrent access should succeed");
+        }
     }
 }
