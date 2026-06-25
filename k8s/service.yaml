@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: opencode-api
+  namespace: opencode
+  labels:
+    app: opencode-api
+spec:
+  selector:
+    app: opencode-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+
+---
+# Optional: LoadBalancer for direct external access (dev/staging only)
+# In production, use an Ingress instead.
+apiVersion: v1
+kind: Service
+metadata:
+  name: opencode-api-lb
+  namespace: opencode
+  labels:
+    app: opencode-api
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  selector:
+    app: opencode-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer

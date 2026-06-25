@@ -1,52 +1,66 @@
-# Stage 1: Builder - Linux環境でRustコンパイル
-FROM rust:latest as builder
+# ── Stage 1: dependency cache ─────────────────────────────────────────────────
+# Cache Cargo.toml/Cargo.lock as a separate layer so source changes don't
+# invalidate the expensive dependency compilation step.
+FROM rust:1.78-slim-bookworm AS deps
 
 WORKDIR /build
 
-# Copy source code
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy manifests only — source excluded to maximise cache hit rate
 COPY Cargo.toml Cargo.lock ./
+
+# Create a stub main so cargo can compile dependencies without real source
+RUN mkdir -p src && echo "fn main() {}" > src/main.rs && \
+    mkdir -p src && echo "" > src/lib.rs && \
+    cargo build --release && \
+    rm -rf src
+
+# ── Stage 2: compile ──────────────────────────────────────────────────────────
+FROM deps AS builder
+
+# Copy real source + config
 COPY src ./src
 COPY migrations ./migrations
 COPY config ./config
 
-# Build release binary for Linux
-RUN cargo build --release
+# Touch main.rs to force recompile (avoids stale artifact from stub above)
+RUN touch src/main.rs && cargo build --release
 
-# Stage 2: Runtime
-FROM ubuntu:24.04
+# ── Stage 3: minimal runtime ──────────────────────────────────────────────────
+FROM debian:bookworm-slim AS runtime
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Only what the binary needs at runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libssl3 \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -u 1001 -s /bin/false appuser
 
-# Create non-root user
-RUN useradd -m -u 1001 appuser
-
-# Copy binary from builder stage (Linux binary)
+# Copy binary and config
 COPY --from=builder /build/target/release/opencode_poc /app/opencode_poc
-
-# Copy configuration files
 COPY config ./config
 
-# Create data directory
+# Data directory (SQLite DB + uploads)
 RUN mkdir -p /data/uploads && chown -R appuser:appuser /app /data
 
-# Switch to non-root user
 USER appuser
 
 EXPOSE 8080
 
-# Environment variables
 ENV ENVIRONMENT=production \
     RUST_LOG=info \
     DATABASE_PATH=/data/poc.db
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+# Use /health/ready for liveness — returns 503 if DB unavailable
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/api/v1/health/ready || exit 1
 
-CMD ["./opencode_poc"]
+CMD ["/app/opencode_poc"]

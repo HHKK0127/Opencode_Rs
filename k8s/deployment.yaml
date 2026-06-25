@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opencode-api
+  namespace: opencode
+  labels:
+    app: opencode-api
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: opencode-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0        # Zero-downtime: always keep 2 pods running
+  template:
+    metadata:
+      labels:
+        app: opencode-api
+        version: "1.0.0"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+
+      containers:
+        - name: opencode-api
+          image: opencode_poc:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+
+          # Environment from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: opencode-config
+
+          # Secrets injected individually
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: opencode-secrets
+                  key: jwt-secret
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis:6379"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: opencode-secrets
+                  key: redis-password
+
+          # Kubernetes readiness probe — uses /health/ready (DB + cache check)
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            successThreshold: 1
+
+          # Kubernetes liveness probe — uses /health/live (process alive check)
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+            successThreshold: 1
+
+          # Startup probe — allows extra time for first boot (DB init + Redis)
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12   # 12 * 5s = 60s max startup time
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: opencode-data-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opencode-data-pvc
+  namespace: opencode
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

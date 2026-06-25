@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencode-config
+  namespace: opencode
+data:
+  ENVIRONMENT: "production"
+  RUST_LOG: "info"
+  OPENCODE__SERVER__HOST: "0.0.0.0"
+  OPENCODE__SERVER__PORT: "8080"
+  OPENCODE__DATABASE__PATH: "/data/poc.db"
+  OPENCODE__DATABASE__AUTO_INIT: "true"
+  OPENCODE__DATABASE__MAX_CONNECTIONS: "20"
+  OPENCODE__UPLOAD__DIRECTORY: "/data/uploads"
+  OPENCODE__UPLOAD__MAX_FILE_SIZE_MB: "50"
+  OPENCODE__SERVER__WORKERS: "4"

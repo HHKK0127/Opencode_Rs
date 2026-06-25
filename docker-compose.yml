@@ -12,39 +12,47 @@ services:
       ENVIRONMENT: production
       RUST_LOG: info
       OPENCODE__SERVER__HOST: 0.0.0.0
-      OPENCODE__SERVER__PORT: 8080
+      OPENCODE__SERVER__PORT: "8080"
       OPENCODE__DATABASE__PATH: /data/poc.db
       OPENCODE__DATABASE__AUTO_INIT: "true"
       OPENCODE__DATABASE__MAX_CONNECTIONS: "20"
       OPENCODE__UPLOAD__DIRECTORY: /data/uploads
       OPENCODE__UPLOAD__MAX_FILE_SIZE_MB: "50"
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-test_password}@redis:6379
     volumes:
       - opencode-data:/data
       - ./config:/app/config:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 15s
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - opencode-network
     restart: unless-stopped
 
-  # Optional: Redis for caching (to be integrated in Wave 2)
   redis:
     image: redis:7-alpine
     container_name: opencode-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-test_password} --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-test_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
     networks:
       - opencode-network
     restart: unless-stopped
-    profiles:
-      - with-redis
 
 volumes:
   opencode-data:
