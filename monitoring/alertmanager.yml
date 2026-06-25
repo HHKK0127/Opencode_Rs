@@ -1,0 +1,62 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: default
+  routes:
+    - match:
+        severity: critical
+      receiver: critical
+      continue: true
+    - match:
+        track: canary
+      receiver: canary-alerts
+
+receivers:
+  - name: default
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#opencode-alerts"
+        title: "[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Details:* {{ .Annotations.description }}
+          *Severity:* {{ .Labels.severity }}
+          {{ end }}
+        send_resolved: true
+
+  - name: critical
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#opencode-critical"
+        title: "🚨 CRITICAL: {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.description }}
+          {{ end }}
+        send_resolved: true
+
+  - name: canary-alerts
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#opencode-canary"
+        title: "🐦 Canary Alert: {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          Rollback command: kubectl -n opencode scale deployment opencode-api-canary --replicas=0
+          {{ end }}
+        send_resolved: true
+
+inhibit_rules:
+  # Suppress warning if critical is already firing for the same alertname
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ["alertname", "instance"]

@@ -1,0 +1,130 @@
+groups:
+  # ── Service Availability ──────────────────────────────────────────────────
+  - name: opencode.availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job="opencode-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "OpenCode API is down"
+          description: "{{ $labels.instance }} has been unreachable for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          / rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate ({{ $value | humanizePercentage }})"
+          description: "Error rate exceeds 5% for 2 minutes on {{ $labels.instance }}."
+
+      - alert: ElevatedErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          / rate(http_requests_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated HTTP 5xx error rate ({{ $value | humanizePercentage }})"
+          description: "Error rate above 1% for 5 minutes."
+
+  # ── Latency ───────────────────────────────────────────────────────────────
+  - name: opencode.latency
+    interval: 30s
+    rules:
+      - alert: HighP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 1.0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency > 1s ({{ $value | humanizeDuration }})"
+          description: "95th percentile response time exceeds 1 second on {{ $labels.instance }}."
+
+      - alert: CriticalP95Latency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 3.0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "p95 latency > 3s — SLO breach ({{ $value | humanizeDuration }})"
+          description: "95th percentile latency critically high on {{ $labels.instance }}."
+
+  # ── Redis Cache ───────────────────────────────────────────────────────────
+  - name: opencode.cache
+    interval: 60s
+    rules:
+      - alert: LowCacheHitRate
+        expr: |
+          rate(redis_cache_hits_total[10m])
+          / (rate(redis_cache_hits_total[10m]) + rate(redis_cache_misses_total[10m]) + 0.001)
+          < 0.70
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cache hit rate below 70% ({{ $value | humanizePercentage }})"
+          description: "Redis cache hit rate has dropped, increasing DB load."
+
+      - alert: RedisConnectionErrors
+        expr: rate(redis_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis connection errors detected ({{ $value }}/s)"
+          description: "Redis is experiencing errors on {{ $labels.instance }}."
+
+  # ── Canary Release ────────────────────────────────────────────────────────
+  - name: opencode.canary
+    interval: 30s
+    rules:
+      - alert: CanaryHighErrorRate
+        expr: |
+          rate(http_requests_total{job="opencode-canary", status=~"5.."}[5m])
+          / rate(http_requests_total{job="opencode-canary"}[5m]) > 0.02
+        for: 2m
+        labels:
+          severity: critical
+          track: canary
+        annotations:
+          summary: "Canary error rate > 2% — consider rollback"
+          description: "Canary deployment has elevated errors. Run: ./k8s/canary/rollback.sh"
+
+      - alert: CanaryHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="opencode-canary"}[5m])
+          ) > 1.5
+        for: 3m
+        labels:
+          severity: warning
+          track: canary
+        annotations:
+          summary: "Canary p95 latency > 1.5s"
+          description: "Canary pod is slower than stable. Pause promotion."
+
+  # ── Resource Usage ────────────────────────────────────────────────────────
+  - name: opencode.resources
+    interval: 60s
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 400 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage > 400MB ({{ $value | humanize1024 }}B)"
+          description: "Process memory is high on {{ $labels.instance }}."

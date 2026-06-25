@@ -2,26 +2,34 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    monitor: 'opencode-api'
+    env: production
+    service: opencode
 
-scrape_configs:
-  - job_name: 'opencode-api'
-    static_configs:
-      - targets: ['opencode-api:8080']
-    metrics_path: '/metrics'
-    scrape_interval: 10s
-    scrape_timeout: 5s
-    honor_labels: true
-
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
+rule_files:
+  - "prometheus-rules.yml"
 
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: []
+        - targets: ["alertmanager:9093"]
 
-rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+scrape_configs:
+  # OpenCode API metrics
+  - job_name: opencode-api
+    metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ["opencode-api:8080"]
+
+  # Canary pod metrics (separate job for comparison)
+  - job_name: opencode-canary
+    metrics_path: /metrics
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["opencode-api-canary:8080"]
+
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
