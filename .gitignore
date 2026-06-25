@@ -41,3 +41,11 @@ test_results/
 test.txt
 test-auth.txt
 test_uploads*/
+
+# Cargo vendor (run `cargo vendor` + set up .cargo/config.toml locally before docker build
+# in corporate networks with SSL interception)
+vendor/
+.cargo/
+
+# Docker build log
+docker-build.log

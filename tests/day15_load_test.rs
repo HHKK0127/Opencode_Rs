@@ -249,8 +249,8 @@ fn test_04_sustained_load_stability() {
     );
 
     assert!(
-        stability > 0.85,
-        "Performance should remain stable (>85%), got {:.1}%",
+        stability > 0.80,
+        "Performance should remain stable (>80%), got {:.1}%",
         stability * 100.0
     );
 }

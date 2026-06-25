@@ -61,7 +61,7 @@ pub async fn upload_file(
         let checksum = format!("{:x}", hasher.finalize());
 
         let file_metadata = StorageFileMetadata {
-            filename: original_filename.clone(),
+            filename: file_id.clone(),
             content_type: mime_type.clone(),
             size: total_size as usize,
             user_id: Uuid::new_v4(),
@@ -414,8 +414,26 @@ fn sanitize_filename(filename: &str) -> String {
         .collect()
 }
 
+#[get("/files/stats")]
+pub async fn file_stats(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
+    let row = sqlx::query_as::<_, (i64, i64, i64, i64)>(
+        "SELECT COUNT(*), COALESCE(SUM(size), 0)::BIGINT, COALESCE(AVG(size), 0)::BIGINT, COUNT(DISTINCT mime_type) FROM files"
+    )
+    .fetch_one(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "total_files": row.0,
+        "total_size_bytes": row.1,
+        "average_size_bytes": row.2,
+        "unique_mime_types": row.3,
+    })))
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(upload_file)
+        .service(file_stats)        // must be before get_file_metadata (/files/{id})
         .service(get_file_metadata)
         .service(download_file)
         .service(delete_file)

@@ -69,8 +69,8 @@ pub async fn init_chunked_upload(
     let file_id = Uuid::new_v4().to_string();
 
     sqlx::query(
-        "INSERT INTO upload_sessions (id, file_id, total_size, uploaded_size, chunk_size, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)"
+        "INSERT INTO upload_sessions (id, file_id, total_size, uploaded_size, chunk_size, status)
+         VALUES ($1, $2, $3, $4, $5, $6)"
     )
     .bind(&session_id)
     .bind(&file_id)
@@ -78,7 +78,6 @@ pub async fn init_chunked_upload(
     .bind(0i64)
     .bind(req.chunk_size as i64)
     .bind("uploading")
-    .bind(Utc::now().to_rfc3339())
     .execute(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;

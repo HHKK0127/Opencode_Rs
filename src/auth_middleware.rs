@@ -59,6 +59,7 @@ where
                 || path.starts_with("/api/v1/metrics")
                 || path.starts_with("/api/v1/health")
                 || path.starts_with("/health")
+                || path == "/metrics"
             {
                 return service.call(req).await.map(|res| res.map_into_left_body());
             }

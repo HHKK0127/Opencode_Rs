@@ -148,6 +148,7 @@ async fn db_health_check_handler(app_state: web::Data<app_state::AppState>) -> H
     match sqlx::query("SELECT 1").fetch_one(&app_state.db).await {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({
             "status": "database_connected",
+            "connected": true,
             "timestamp": chrono::Utc::now().to_rfc3339()
         })),
         Err(e) => {

@@ -63,6 +63,11 @@ spec:
                   key: redis-password
             - name: REDIS_URL
               value: "redis://:$(REDIS_PASSWORD)@redis:6379"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opencode-secrets
+                  key: database-url
           readinessProbe:
             httpGet:
               path: /api/v1/health/ready

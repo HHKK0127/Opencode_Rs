@@ -62,13 +62,14 @@ impl GracefulShutdown {
         {
             use tokio::signal::unix::SignalKind;
 
+            let mut sigterm = tokio::signal::unix::signal(SignalKind::terminate())
+                .expect("Failed to setup SIGTERM handler");
+
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
                     self.shutdown(ShutdownSignal::Sigint).await;
                 }
-                _ = tokio::signal::unix::signal(SignalKind::terminate())
-                    .expect("Failed to setup SIGTERM handler")
-                    .recv() => {
+                _ = sigterm.recv() => {
                     self.shutdown(ShutdownSignal::Sigterm).await;
                 }
             }
