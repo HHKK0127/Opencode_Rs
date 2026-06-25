@@ -6,13 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a **Proof of Concept (PoC)** for migrating OpenCode (43K-line TypeScript AI development tool) to a hybrid Rust backend. The project follows the **Strangler Fig pattern** with staged implementation (Wave 1-4 over 90-120 days with 2-person team).
 
-**Current Status**: Wave 2 Day 5 complete (2026-05-30)
-- Wave 1 (完全完成): JWT認証・ミドルウェア・基盤層（30テスト全パス）
-- Wave 2 Day 1-3 (完成): ファイル処理API・チャンク化・検索（47テスト全パス）
-- Wave 2 Day 4-5 (完成): DBインデックス化（4.6-6.9倍高速化）・本番準備・ドキュメント統合
-  - Prometheusメトリクス統合 ✅
-  - カナリアリリース計画作成 ✅ (3フェーズ本番リリース手順)
-  - 運用・監視ドキュメント完成 ✅ (8ファイル統合)
+**Current Status**: Wave 5 完全完成 (2026-06-25) — **本番移行 GO ✅**
+- Wave 1 (完全完成): JWT認証・ミドルウェア・基盤層（30テスト）
+- Wave 2 (完全完成): ファイル処理API・チャンク化・検索（47テスト）
+- Wave 3 (完全完成): S3/MinIO クラウドストレージ（45テスト）
+- Wave 4 (完全完成): Redis キャッシング・セッション管理（107テスト）
+- Wave 5 (完全完成): 本番化準備・Kubernetes・CI/CD・Canary リリース（18テスト）
+  - **総テスト数: 229/229 (100%) ✅**
+  - Kubernetes マニフェスト・HPA・Canary デプロイ ✅
+  - GitHub Actions CI/CD パイプライン ✅
+  - Prometheus アラートルール + Grafana ダッシュボード ✅
+  - Request ID ミドルウェア + Structured Logging ✅
   - Wave 3詳細計画完成 ✅ (S3/MinIO 3週間実装計画)
   - **ドキュメント階層化** ✅ (docs/API, Operations, Performance, Planning)
   - **コード修正実装** ✅ (auth_middleware + error.rs)

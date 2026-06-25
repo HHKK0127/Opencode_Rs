@@ -8,8 +8,8 @@
 
 OpenCode (43K-line TypeScript AI development tool) の Rust ハイブリッドバックエンド移行
 - **パターン**: Strangler Fig (段階的移行)
-- **現在地**: Wave 5 Phase 1 完成 (Day 16-17) → Phase 2 開始待機
-- **テスト**: 218/223 tests (97.8%) ※破損テストファイル除外
+- **現在地**: Wave 5 全フェーズ完成 → **本番移行 GO ✅**
+- **テスト**: 229/229 tests (100%) ✅
 - **本番対応**: PRODUCTION READY
 
 ---
@@ -133,9 +133,15 @@ docs/
 
 ---
 
-## ✨ 次のセッションで実行すること
+## ✨ プロジェクト完了
 
-1. **Wave 5 Phase 2 開始** (Day 18-19): Docker イメージ最適化・CI/CD パイプライン・Kubernetes マニフェスト
-2. **Docker 確認**: `docker start opencode-redis`
-3. **テスト確認**: `cargo test --lib && cargo test --test wave5_health_tests`
-4. **ビルド**: `cargo build --release`
+Wave 1〜5 全完成。本番移行準備完了。
+
+**本番移行時の実行コマンド**:
+```bash
+kubectl apply -k k8s/                                    # K8s リソース全適用
+docker-compose -f docker-compose.monitoring.yml up -d   # 監視スタック
+./k8s/canary/promote.sh 10                              # Canary 10% 開始
+./k8s/canary/promote.sh 50                              # Canary 50%
+./k8s/canary/promote.sh 100                             # 本番 100%
+```
