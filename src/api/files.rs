@@ -73,7 +73,7 @@ pub async fn upload_file(
             .map_err(|_| AppError::Internal)?;
 
         sqlx::query(
-            "INSERT INTO files (id, filename, original_name, size, mime_type, checksum, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO files (id, filename, original_name, size, mime_type, checksum) VALUES (?, ?, ?, ?, ?, ?)"
         )
         .bind(&file_id)
         .bind(&original_filename)
@@ -81,7 +81,6 @@ pub async fn upload_file(
         .bind(total_size)
         .bind(&mime_type)
         .bind(&checksum)
-        .bind(Utc::now().to_rfc3339())
         .execute(&app_state.db)
         .await
         .map_err(|e| AppError::Database(e.to_string()))?;
@@ -118,7 +117,8 @@ pub struct FileMetadataResponse {
     original_name: String,
     size: i64,
     mime_type: String,
-    created_at: String,
+    #[serde(rename = "created_at")]
+    uploaded_at: String,
     is_public: bool,
 }
 
@@ -144,7 +144,7 @@ pub async fn get_file_metadata(
 
     // Fetch from database
     let file = sqlx::query_as::<_, (String, String, String, i64, String, String, bool)>(
-        "SELECT id, filename, original_name, size, mime_type, created_at, is_public FROM files WHERE id = ?"
+        "SELECT id, filename, COALESCE(original_name, filename), size, COALESCE(mime_type, ''), uploaded_at, COALESCE(is_public, 0) FROM files WHERE id = ?"
     )
     .bind(&file_id)
     .fetch_optional(&app_state.db)
@@ -158,7 +158,7 @@ pub async fn get_file_metadata(
         original_name: file.2,
         size: file.3,
         mime_type: file.4,
-        created_at: file.5,
+        uploaded_at: file.5,
         is_public: file.6,
     };
 
@@ -306,7 +306,7 @@ pub async fn list_files(
 
     // Fetch from database
     let files = sqlx::query_as::<_, (String, String, i64, String, String)>(
-        "SELECT id, filename, size, mime_type, created_at FROM files ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        "SELECT id, filename, size, COALESCE(mime_type, ''), uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT ? OFFSET ?"
     )
     .bind(per_page)
     .bind(offset)

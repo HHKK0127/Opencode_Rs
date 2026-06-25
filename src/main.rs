@@ -45,13 +45,12 @@ async fn main() -> std::io::Result<()> {
 
     let db_path = &settings.database.path;
 
-    // Initialize database on first run
-    let needs_init = !Path::new(db_path).exists();
-    if needs_init && settings.database.auto_init {
+    // Always initialize/update schema (CREATE TABLE IF NOT EXISTS is idempotent)
+    if !Path::new(db_path).exists() {
         std::fs::File::create(db_path).expect("Failed to create DB file");
-        initialize_db(db_path).await.expect("Failed to initialize DB");
-        println!("✅ Database initialized");
     }
+    initialize_db(db_path).await.expect("Failed to initialize DB");
+    println!("✅ Database schema ready");
 
     let database_url = format!("sqlite://{}", db_path);
     let pool = SqlitePool::connect(&database_url)
@@ -80,10 +79,8 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
-    // Initialize database schema with migrations
-    db::init_database(&pool)
-        .await
-        .expect("Failed to initialize database schema");
+    // Skip migration system: full schema created in initialize_db
+    // db::init_database(&pool).await.expect("Failed to initialize database schema");
 
     // Apply performance optimizations
     db::optimize_database(&pool)
@@ -222,8 +219,21 @@ async fn initialize_db(db_path: &str) -> Result<(), sqlx::Error> {
         CREATE TABLE IF NOT EXISTS files (
             id TEXT PRIMARY KEY,
             filename TEXT NOT NULL,
+            original_name TEXT,
             size INTEGER NOT NULL,
+            mime_type TEXT,
+            checksum TEXT,
             path TEXT NOT NULL,
+            user_id TEXT,
+            description TEXT,
+            tags TEXT,
+            is_public BOOLEAN DEFAULT 0,
+            expires_at TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            s3_path TEXT,
+            s3_etag TEXT,
+            s3_version_id TEXT,
+            storage_type TEXT DEFAULT 'local',
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         "#,

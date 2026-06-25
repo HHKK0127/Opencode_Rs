@@ -228,8 +228,8 @@ pub async fn complete_chunked_upload(
         .to_string();
 
     sqlx::query(
-        "INSERT INTO files (id, filename, original_name, size, mime_type, path, checksum, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO files (id, filename, original_name, size, mime_type, path, checksum)
+         VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
     .bind(&file_id)
     .bind(&final_filename)
@@ -238,7 +238,6 @@ pub async fn complete_chunked_upload(
     .bind(&mime_type)
     .bind(final_path.to_str().unwrap())
     .bind(&checksum)
-    .bind(Utc::now().to_rfc3339())
     .execute(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;

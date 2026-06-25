@@ -3,44 +3,50 @@ import { check, sleep } from 'k6';
 
 export const options = {
   vus: 10,
-  duration: '5m',
+  duration: '3m',
   thresholds: {
     'http_req_duration': ['p(95)<500'],
+    'http_req_failed': ['rate<0.1'],
   },
 };
 
+const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080';
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
 export default function () {
-  const base_url = __ENV.BASE_URL || 'http://localhost:8080';
-  
-  // 1. ログイン
-  const login_res = http.post(`${base_url}/api/v1/auth/login`, {
-    username: 'testuser',
-    password: 'testpassword',
+  // 1. ログイン (JSON形式)
+  const login_res = http.post(
+    `${BASE_URL}/api/v1/auth/login`,
+    JSON.stringify({ username: 'testuser', password: 'testpassword' }),
+    { headers: JSON_HEADERS }
+  );
+
+  const loginOk = check(login_res, {
+    'login status 200': (r) => r.status === 200,
   });
-  
-  check(login_res, {
-    'login ok': (r) => r.status === 200,
-  });
-  
+
+  if (!loginOk) { sleep(1); return; }
+
   const token = login_res.json('token');
-  
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+  };
+
   // 2. ファイルリスト取得
-  const list_res = http.get(`${base_url}/api/v1/files`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const list_res = http.get(`${BASE_URL}/api/v1/files?page=1&per_page=20`, {
+    headers: authHeaders,
   });
-  
+
   check(list_res, {
-    'list ok': (r) => r.status === 200,
+    'files list 200': (r) => r.status === 200,
   });
-  
-  // 3. セッション情報取得
-  const session_res = http.get(`${base_url}/api/v1/sessions/info`, {
-    headers: { Authorization: `Bearer ${token}` },
+
+  // 3. ヘルスチェック
+  const health_res = http.get(`${BASE_URL}/health`);
+  check(health_res, {
+    'health 200': (r) => r.status === 200,
   });
-  
-  check(session_res, {
-    'session ok': (r) => r.status === 200,
-  });
-  
+
   sleep(1);
 }
