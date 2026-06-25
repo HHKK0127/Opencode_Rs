@@ -444,7 +444,8 @@ Wave 1-3 の完了報告書・進捗ログ
 
 ### メインドキュメント
 - **[CLAUDE.md](../CLAUDE.md)** — プロジェクト全体ガイド・開発コマンド
-- **[MEMORY.md](../MEMORY.md)** — プロジェクト記憶・意思決定ログ
+- **[.claude/memory/MEMORY.md](../.claude/memory/MEMORY.md)** — プロジェクト記憶・意思決定ログ（最新）
+- **[Archive/MEMORY_COMPRESSED_2026-06-03.md](./Archive/MEMORY_COMPRESSED_2026-06-03.md)** — 圧縮メモリアーカイブ (2026-06-03)
 
 ### コード参照
 - `src/main.rs` — サーバー初期化・ミドルウェア設定
