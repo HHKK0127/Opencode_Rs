@@ -104,10 +104,49 @@ cargo run
 
 ## 📌 未完了タスク（次回セッション時）
 
-- [ ] **git push origin main** — pending（ユーザー承認待ち）
-  - コミット1: `feat: migrate database from SQLite to PostgreSQL`
-  - コミット2: `fix: resolve PostgreSQL test failures after SQLite migration`
-- [ ] `tests/legacy/` のファイルを PostgreSQL API に移行（将来課題）
+- [x] **git push origin main** — 完了済み（b8e183a, 5644c67, e58aece）
+- [x] `tests/legacy/` のファイルを PostgreSQL API に移行 — 完了済み（2026-06-26）
+- [ ] **ビルド環境修正**: `vendor/` ディレクトリの `num-traits` ビルドスクリプトが書き込み権限エラーで失敗。`cargo clean` + `.cargo/config.toml` の見直しが必要
+- [ ] **運用・監視強化** (docs, runbooks)
+- [ ] **ドキュメント整備** (README, API spec)
+
+---
+
+## 🔄 [2026-06-26] tests/legacy/ → PostgreSQL API テスト移行完了
+
+### 移行内容
+旧SQLite/S3 APIを使用していたテストファイルをPostgreSQL対応に書き換え。
+
+| 旧ファイル | 新ファイル | 変更内容 |
+|-----------|-----------|---------|
+| `tests/legacy/day14_session_management.rs` | `tests/day14_session_management.rs` | SQLite→PgPool, tokio::test, MockSessionStore完成 |
+| `tests/legacy/s3_basic_operations_test.rs` | `tests/s3_basic_operations_test.rs` | S3Client直接使用（DB不要） |
+| `tests/legacy/presigned_urls_test.rs` | `tests/presigned_urls_test.rs` | AppState依存削除、S3Client直接テスト |
+| `tests/legacy/migration_performance_test.rs` | `tests/migration_performance_test.rs` | SQLite→PgPool, S3Cacheテスト維持 |
+| `tests/legacy/e2e_s3_metadata_test.rs` | `tests/e2e_file_api_test.rs` | 削除済みエンドポイント→現在のfiles APIテスト |
+
+### 変更したソースファイル
+- `src/storage/mod.rs`: `pub mod s3_client;` を追加（テストからS3Clientアクセス用）
+
+### 重要な変更点
+- `tests/legacy/` ディレクトリは空にした（全ファイル削除済み）
+- `e2e_s3_metadata_test.rs` は `/files/register`, `/files/s3/complete` をテストしていたが、これらのエンドポイントは現在存在しないため、`e2e_file_api_test.rs` として書き換え
+- `AppState` に `s3_client` フィールドがないため、S3テストは `S3Client` を直接使用
+
+### 既知のビルド問題
+- `vendor/` ディレクトリ使用時に `num-traits` ビルドスクリプトが `output path is not a writable directory` エラーで失敗する
+- 原因: `autocfg` クレートのビルドスクリプトが `OUT_DIR` に書き込めない（Windows権限問題）
+- 対処法:
+  ```powershell
+  # 1. target ディレクトリを削除
+  Remove-Item -Path target -Recurse -Force
+  
+  # 2. vendor ディレクトリの読み取り専用属性を解除
+  attrib -R vendor\* /S /D
+  
+  # 3. 再ビルド
+  cargo build
+  ```
 
 ---
 
@@ -233,11 +272,15 @@ src/
 │   ├── redis.rs         # Redis クライアント
 │   └── session.rs       # セッション管理
 tests/
-├── fixtures/mod.rs      # PgPool + LocalStorageBackend + AppState::new(4引数)
+├── fixtures/mod.rs              # PgPool + LocalStorageBackend + AppState::new(4引数)
+├── day14_session_management.rs  # セッション管理テスト (PostgreSQL)
+├── s3_basic_operations_test.rs  # S3基本操作テスト
+├── presigned_urls_test.rs       # Presigned URLテスト
+├── migration_performance_test.rs # 移行・パフォーマンステスト
+├── e2e_file_api_test.rs         # ファイルAPI E2Eテスト
 ├── wave5_health_tests.rs
 ├── wave5_final_smoke.rs
-├── auth_flow.rs
-└── legacy/              # 旧SQLite/S3 API使用 (自動コンパイル対象外)
+└── auth_flow.rs
 k8s/
 └── postgres.yaml        # 新規: PostgreSQL K8s マニフェスト
 ```

@@ -1,6 +1,6 @@
 # RUNBOOK - OpenCode Production Operations
 
-**最終更新**: 2026-05-30  
+**最終更新**: 2026-06-26  
 **対象**: DevOps Team, On-Call Engineers
 
 ---
@@ -45,7 +45,7 @@ curl http://localhost:8080/api/v1/metrics | grep active_connections
 | 問題 | 症状 | 対応 | 時間 |
 |------|------|------|------|
 | メモリリーク | メモリが1時間連続増加 | `docker-compose restart app` | 1分 |
-| DB ロック | クエリ応答なし | `PRAGMA lock_status;` 確認→ `REINDEX;` | 5分 |
+| DB ロック | クエリ応答なし | `SELECT * FROM pg_stat_activity WHERE wait_event_type = 'Lock';` 確認→ `SELECT pg_terminate_backend(pid);` | 5分 |
 | ディスク満杯 | `df -h` で 100% | `find ./uploads -mtime +30 -delete` | 2分 |
 | ポート競合 | bind エラー | `lsof -i :8080` で確認→ PID kill | 1分 |
 
@@ -112,10 +112,9 @@ Post-mortem 報告内容:
 # (実装済みの場合)
 curl -X POST http://localhost:8080/api/v1/admin/maintenance
 
-# 3. DBメンテナンス
-sqlite3 app.db "VACUUM;"
-sqlite3 app.db "ANALYZE;"
-sqlite3 app.db "REINDEX;"
+# 3. DBメンテナンス (PostgreSQL)
+psql -U opencode -d opencode -c "VACUUM ANALYZE;"
+psql -U opencode -d opencode -c "REINDEX DATABASE opencode;"
 
 # 4. ログローテーション
 logrotate /etc/logrotate.d/opencode
@@ -138,13 +137,13 @@ curl http://localhost:8080/health
 RUST_LOG=debug docker-compose logs app | grep "duration" | sort -t= -k2 -nr | head -20
 
 # 2. インデックス確認
-sqlite3 app.db "PRAGMA index_list(files);"
+psql -U opencode -d opencode -c "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'files';"
 
 # 3. テーブル統計確認
-sqlite3 app.db "PRAGMA table_info(files);"
+psql -U opencode -d opencode -c "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'files';"
 
 # 4. 最適化実行
-sqlite3 app.db "ANALYZE;"
+psql -U opencode -d opencode -c "ANALYZE;"
 
 # 5. メトリクス確認
 curl http://localhost:8080/api/v1/metrics | grep "duration"
@@ -196,27 +195,28 @@ Critical: Immediate rollback required
 
 ```bash
 # 1. 最新バックアップ確認
-ls -lh /backups/opencode/*.db | tail -5
+ls -lh /backups/opencode/*.sql | tail -5
 
 # 2. バックアップサイズ確認
 du -h /backups/opencode/ | tail -1
 
-# 3. 整合性チェック
-sqlite3 /backups/opencode/latest.db "PRAGMA integrity_check;"
+# 3. 整合性チェック (バックアップファイルのサイズ確認)
+wc -l /backups/opencode/latest.sql
 ```
 
 ### 週次リストア テスト
 
 ```bash
 # 1. テストDB作成
-cp /backups/opencode/latest.db /tmp/test_restore.db
+createdb opencode_test_restore
+psql -U opencode -d opencode_test_restore -f /backups/opencode/latest.sql
 
 # 2. リストア確認
-sqlite3 /tmp/test_restore.db "SELECT COUNT(*) FROM users;"
-sqlite3 /tmp/test_restore.db "SELECT COUNT(*) FROM files;"
+psql -U opencode -d opencode_test_restore -c "SELECT COUNT(*) FROM users;"
+psql -U opencode -d opencode_test_restore -c "SELECT COUNT(*) FROM files;"
 
 # 3. クリーンアップ
-rm /tmp/test_restore.db
+dropdb opencode_test_restore
 ```
 
 ---
@@ -236,7 +236,7 @@ docker-compose logs app --tail=100 | grep ERROR | wc -l
 df -h / | grep -v Filesystem
 
 # 4. Database Size
-ls -lh app.db
+psql -U opencode -d opencode -c "SELECT pg_size_pretty(pg_database_size('opencode'));"
 
 # 5. Metrics Summary
 curl http://localhost:8080/api/v1/metrics | head -20
@@ -270,5 +270,5 @@ grep "401\|403" app.log | wc -l
 ---
 
 **RUNBOOK Complete**  
-**Last Updated**: 2026-05-30  
+**Last Updated**: 2026-06-26  
 **Location**: docs/Operations/RUNBOOK.md

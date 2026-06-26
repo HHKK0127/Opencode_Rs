@@ -98,8 +98,8 @@ histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
 ## Troubleshooting
 
 ### High Latency
-1. Check DB: `sqlite3 app.db ".tables"`
-2. Check indexes: `PRAGMA index_list(files);`
+1. Check DB: `psql -U opencode -d opencode -c "\dt"`
+2. Check indexes: `psql -U opencode -d opencode -c "SELECT indexname FROM pg_indexes WHERE tablename = 'files';"`
 3. Review slow queries in logs
 
 ### Memory Issues
@@ -113,13 +113,14 @@ docker-compose restart app
 
 ### Database Locked
 ```bash
-# Check locks
-sqlite3 app.db "PRAGMA lock_status;"
+# Check locks (PostgreSQL)
+psql -U opencode -d opencode -c "SELECT pid, state, wait_event_type, query FROM pg_stat_activity WHERE wait_event_type = 'Lock';"
 
-# Backup and optimize
-sqlite3 app.db ".backup temp.db"
-sqlite3 temp.db "VACUUM;"
-mv temp.db app.db
+# Kill blocking queries if needed
+psql -U opencode -d opencode -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND state = 'active';"
+
+# Optimize
+psql -U opencode -d opencode -c "VACUUM ANALYZE;"
 ```
 
 ### Disk Space Full
@@ -173,8 +174,8 @@ services:
 BACKUP_DIR="/backups/opencode"
 DATE=$(date +%Y%m%d_%H%M%S)
 
-# DB backup
-sqlite3 /data/app.db ".backup ${BACKUP_DIR}/app_${DATE}.db"
+# DB backup (PostgreSQL)
+pg_dump -U opencode opencode > ${BACKUP_DIR}/app_${DATE}.sql
 
 # Uploads backup
 tar czf ${BACKUP_DIR}/uploads_${DATE}.tar.gz /data/uploads/
@@ -188,8 +189,8 @@ find ${BACKUP_DIR} -mtime +7 -delete
 # Stop application
 docker-compose stop app
 
-# Restore database
-cp app_20240115_120000.db app.db
+# Restore database (PostgreSQL)
+psql -U opencode opencode < app_20240115_120000.sql
 
 # Restore uploads
 tar xzf uploads_20240115_120000.tar.gz -C /
@@ -200,8 +201,10 @@ docker-compose start app
 
 ### Point-in-Time Recovery
 ```bash
-# If using WAL mode
-sqlite3 app.db ".recover" | sqlite3 app_recovered.db
+# PostgreSQL WAL-based recovery (if configured)
+# Restore base backup + replay WAL logs
+pg_basebackup -U opencode -D /tmp/base_backup
+# Apply WAL archives up to desired point in time
 ```
 
 ---
@@ -217,12 +220,11 @@ sqlite3 app.db ".recover" | sqlite3 app_recovered.db
 
 ### Database Maintenance
 ```bash
-# Weekly optimization
-sqlite3 app.db "VACUUM;"
-sqlite3 app.db "ANALYZE;"
+# Weekly optimization (PostgreSQL)
+psql -U opencode -d opencode -c "VACUUM ANALYZE;"
 
 # Index rebuild
-sqlite3 app.db "REINDEX;"
+psql -U opencode -d opencode -c "REINDEX DATABASE opencode;"
 ```
 
 ---

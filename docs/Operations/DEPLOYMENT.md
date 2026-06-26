@@ -160,7 +160,7 @@ curl -v http://localhost:8080/health
 **High latency**:
 ```bash
 # Check database indexes
-sqlite3 poc_test.db "PRAGMA index_list(files);"
+psql -U opencode -d opencode -c "SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'files';"
 
 # Check metrics
 curl http://localhost:8080/api/v1/metrics | grep duration

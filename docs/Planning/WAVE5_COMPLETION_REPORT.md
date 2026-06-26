@@ -194,7 +194,7 @@ curl http://<LB_IP>/api/v1/health/ready
 
 ## 残課題（将来対応）
 
-- [ ] PostgreSQL 移行（現在 SQLite — 本番スケールには PostgreSQL 推奨）
+- [x] PostgreSQL 移行完了（2026-06-25）
 - [ ] TLS 証明書設定（Ingress + cert-manager）
 - [ ] 外部シークレット管理（Vault / AWS Secrets Manager）
 - [ ] マルチリージョン対応

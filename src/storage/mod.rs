@@ -1,6 +1,7 @@
 pub mod error;
 pub mod local_backend;
 pub mod s3_backend;
+pub mod s3_client;
 pub mod multipart;
 pub mod failover;
 pub mod metrics;

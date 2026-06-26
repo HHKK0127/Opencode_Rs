@@ -511,7 +511,7 @@ API サーバーのヘルスチェック（認証不要）
 ```json
 {
   "status": "healthy",
-  "database": "sqlite",
+  "database": "postgresql",
   "latency_ms": 2
 }
 ```

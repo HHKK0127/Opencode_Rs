@@ -56,6 +56,24 @@ scrape_configs:
 | db_connections_active | Gauge | Active connections |
 | db_connections_idle | Gauge | Idle connections |
 
+### PostgreSQL Metrics (psql確認)
+| 確認項目 | SQL |
+|---------|-----|
+| アクティブ接続数 | `SELECT count(*) FROM pg_stat_activity WHERE state = 'active';` |
+| ロック待機 | `SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock';` |
+| DB サイズ | `SELECT pg_size_pretty(pg_database_size('opencode'));` |
+| テーブルサイズ | `SELECT pg_size_pretty(pg_total_relation_size('files'));` |
+| スロークエリ | `SELECT query, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;` |
+| デッドタプル | `SELECT relname, n_dead_tup FROM pg_stat_user_tables ORDER BY n_dead_tup DESC;` |
+
+### PostgreSQL アラート閾値
+| メトリクス | 閾値 | 対応 |
+|-----------|------|------|
+| アクティブ接続数 | > 50 | コネクションプール見直し |
+| ロック待機 | > 0 (継続3分) | ロック元クエリ特定・Kill |
+| デッドタプル | > 10000 | `VACUUM ANALYZE` 実行 |
+| DB サイズ | > 10GB | アーカイブ・パーティション検討 |
+
 ### System Metrics
 | Name | Type | Description |
 |------|------|-------------|
@@ -137,6 +155,22 @@ groups:
           severity: warning
         annotations:
           summary: "Memory usage above 1GB"
+
+      - alert: PostgreSQLConnectionSaturation
+        expr: pg_stat_activity_count > 40
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection count above 40"
+
+      - alert: PostgreSQLDeadlock
+        expr: increase(pg_stat_database_deadlocks[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL deadlock detected"
 ```
 
 ---

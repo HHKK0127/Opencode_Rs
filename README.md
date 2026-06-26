@@ -45,7 +45,7 @@ This PoC progressively replaces the OpenCode TypeScript backend with Rust compon
 | Language | Rust | 1.75+ |
 | Web framework | Actix-web | 4.5 |
 | Async runtime | Tokio | 1.35 |
-| Database | SQLite + SQLx | 0.7 |
+| Database | PostgreSQL 16 + SQLx | 0.7 |
 | Cache | Redis (ConnectionManager) | - |
 | Auth | JWT HS256 + Argon2id | - |
 | Storage | Local / S3 / MinIO | - |

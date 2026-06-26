@@ -42,7 +42,7 @@ Total:                     4-7時間
 - [ ] ファイアウォール設定確認
 
 ### Backup
-- [ ] SQLite DB バックアップ: `cp app.db app.db.backup.$(date +%Y%m%d_%H%M%S)`
+- [ ] PostgreSQL DB バックアップ: `pg_dump -U opencode opencode > /backups/app_backup_$(date +%Y%m%d_%H%M%S).sql`
 - [ ] uploads/ ディレクトリバックアップ確認
 - [ ] バックアップリストア手動テスト（直近1週間以内）
 
@@ -250,10 +250,10 @@ curl http://localhost:8080/health
 ```bash
 # Only if critical issues detected post-GA
 # 1. Backup current state (for forensics)
-sqlite3 app.db ".backup app.db.corrupted.$(date +%Y%m%d_%H%M%S)"
+pg_dump -U opencode opencode > /backups/app_corrupted_$(date +%Y%m%d_%H%M%S).sql
 
 # 2. Restore previous database
-cp app.db.backup.pre_canary app.db
+psql -U opencode opencode < /backups/app_backup_pre_canary.sql
 
 # 3. Downgrade version
 docker-compose down

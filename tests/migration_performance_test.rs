@@ -1,49 +1,24 @@
+// Migration & Performance Tests (PostgreSQL + S3Cache)
+//
+// Migrated from tests/legacy/migration_performance_test.rs
+// - SQLite in-memory → PostgreSQL via fixtures
+// - opencode_poc::middleware::S3Cache is still available
+// - opencode_poc::storage::s3_client::S3Client used directly
+
 use opencode_poc::config::Settings;
 use opencode_poc::middleware::S3Cache;
 use opencode_poc::storage::s3_client::S3Client;
-use sqlx::sqlite::SqlitePool;
 use std::time::Instant;
 
-async fn setup_test_app() -> (SqlitePool, S3Client) {
-    let settings = Settings::default();
+mod fixtures;
 
-    // In-memory SQLite
-    let pool = SqlitePool::connect("sqlite::memory:")
-        .await
-        .expect("Failed to create pool");
-
-    // Create schema
-    sqlx::query(
-        r#"
-        CREATE TABLE files (
-            id TEXT PRIMARY KEY,
-            filename TEXT NOT NULL,
-            original_name TEXT,
-            size INTEGER NOT NULL,
-            s3_path TEXT,
-            s3_etag TEXT,
-            storage_type TEXT DEFAULT 'local',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            uploaded_at TIMESTAMP
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await
-    .expect("Failed to create table");
-
-    let s3_client = S3Client::new(&settings)
-        .await
-        .expect("Failed to create S3 client");
-
-    (pool, s3_client)
-}
-
+// ---------------------------------------------------------------------------
+// Test 1: Single file migration simulation (general I/O)
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_migration_single_file() {
-    let (_pool, _s3_client) = setup_test_app().await;
+    let _pool = fixtures::setup_test_db().await;
 
-    // テスト: 単一ファイル移行シミュレーション
     let test_data = vec![1u8; 1024]; // 1KB
     let file_size = test_data.len() as u64;
 
@@ -51,13 +26,13 @@ async fn test_migration_single_file() {
     println!("✅ Test 1: Single file migration (1KB)");
 }
 
+// ---------------------------------------------------------------------------
+// Test 2: Parallel upload simulation (10 files, concurrent)
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_migration_parallel_uploads() {
-    let _pool = SqlitePool::connect("sqlite::memory:")
-        .await
-        .expect("Failed to create pool");
+    let _pool = fixtures::setup_test_db().await;
 
-    // テスト: 並列アップロードシミュレーション（10ファイル）
     let mut handles = Vec::new();
 
     for i in 0..10 {
@@ -79,81 +54,87 @@ async fn test_migration_parallel_uploads() {
     println!("✅ Test 2: Parallel uploads (10 files, max concurrent=10)");
 }
 
+// ---------------------------------------------------------------------------
+// Test 3: Large file chunked processing
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_migration_large_file_chunked() {
-    // テスト: 大容量ファイル（10MB）チャンク化処理
+    let _pool = fixtures::setup_test_db().await;
+
     let large_file_size = 10 * 1024 * 1024; // 10MB
     let chunk_size = 5 * 1024 * 1024; // 5MB chunks
 
     let num_chunks = (large_file_size + chunk_size - 1) / chunk_size;
 
-    assert_eq!(num_chunks, 2); // 10MBは 5MBチャンク x2
+    assert_eq!(num_chunks, 2); // 10MB -> 2 chunks of 5MB
     println!("✅ Test 3: Large file chunked (10MB -> 2 chunks)");
 }
 
+// ---------------------------------------------------------------------------
+// Test 4: Dry-run mode (no DB changes)
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_migration_dry_run() {
-    let (pool, _s3_client) = setup_test_app().await;
+    let pool = fixtures::setup_test_db().await;
 
-    // テスト: ドライランモード（実際には何も登録されない）
     let file_count_before: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM files")
         .fetch_one(&pool)
         .await
         .expect("Failed to count files");
 
-    assert_eq!(file_count_before.0, 0);
-
-    // ドライラン実行（DBに変更なし）
-    // ... ドライラン実行コード ...
-
+    // Dry-run would not insert anything here
     let file_count_after: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM files")
         .fetch_one(&pool)
         .await
         .expect("Failed to count files");
 
-    assert_eq!(file_count_after.0, 0); // 変更されていない
+    assert_eq!(file_count_before.0, file_count_after.0, "Dry-run should not change file count");
     println!("✅ Test 4: Dry-run mode (no DB changes)");
 }
 
+// ---------------------------------------------------------------------------
+// Test 5: Resume from failure (skip existing files)
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_migration_resume_from_failure() {
-    let (pool, _s3_client) = setup_test_app().await;
+    let pool = fixtures::setup_test_db().await;
 
-    // テスト: 失敗ファイルをスキップして続行
-    let file_id_1 = "file-1";
-    let file_id_2 = "file-2";
+    let file_id_1 = uuid::Uuid::new_v4().to_string();
 
     sqlx::query(
-        "INSERT INTO files (id, filename, original_name, size, storage_type, uploaded_at) VALUES (?, ?, ?, ?, 's3', CURRENT_TIMESTAMP)"
+        "INSERT INTO files (id, filename, original_name, size, mime_type, checksum) VALUES ($1, $2, $3, $4, $5, $6)"
     )
-    .bind(file_id_1)
-    .bind("test1.txt")
-    .bind("test1.txt")
+    .bind(&file_id_1)
+    .bind("test1_resume.txt")
+    .bind("test1_resume.txt")
     .bind(1024i64)
+    .bind("text/plain")
+    .bind("abc123")
     .execute(&pool)
     .await
     .expect("Failed to insert file 1");
 
-    // file-2はスキップされるべき
-    let existing: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM files WHERE original_name = ? AND storage_type = 's3' LIMIT 1",
-    )
-    .bind("test1.txt")
-    .fetch_optional(&pool)
-    .await
-    .expect("Failed to check existing");
+    let existing: Option<(String,)> = sqlx::query_as("SELECT id FROM files WHERE id = $1")
+        .bind(&file_id_1)
+        .fetch_optional(&pool)
+        .await
+        .expect("Failed to check existing");
 
     assert!(existing.is_some());
     println!("✅ Test 5: Resume from failure (skip existing files)");
 }
 
+// ---------------------------------------------------------------------------
+// Test 6: S3Cache hit performance
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_s3_cache_hit_performance() {
+    let _pool = fixtures::setup_test_db().await;
     let start = Instant::now();
 
-    let cache = S3Cache::new(3600); // 1時間TTL
+    let cache = S3Cache::new(3600); // 1 hour TTL
 
-    // キャッシュセット
+    // Set cache entry
     cache.set("test-key".to_string(), "etag-123".to_string()).await;
 
     let cache_get_start = Instant::now();
@@ -163,7 +144,7 @@ async fn test_s3_cache_hit_performance() {
     assert!(entry.is_some());
     assert_eq!(entry.unwrap().etag, "etag-123");
 
-    // キャッシュヒット性能: < 10ms
+    // Cache hit should be < 10ms
     assert!(cache_get_duration.as_millis() < 10);
 
     let total_duration = start.elapsed();
@@ -171,22 +152,33 @@ async fn test_s3_cache_hit_performance() {
         "✅ Test 6: S3 cache hit performance ({:.2}ms, requirement: <10ms)",
         cache_get_duration.as_millis()
     );
+
+    // Avoid unused variable warning in release builds
+    let _ = total_duration;
 }
 
+// ---------------------------------------------------------------------------
+// Test 7: Cache expiration handling
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_cache_expiration() {
-    let cache = S3Cache::new(-1); // 既に期限切れ
+    let _pool = fixtures::setup_test_db().await;
+    let cache = S3Cache::new(-1); // Already expired
     cache.set("expired-key".to_string(), "etag-456".to_string()).await;
 
-    // 期限切れエントリはNoneを返す
+    // Expired entry should return None
     let entry = cache.get("expired-key").await;
     assert!(entry.is_none());
 
     println!("✅ Test 7: Cache expiration handling");
 }
 
+// ---------------------------------------------------------------------------
+// Test 8: Cache invalidation
+// ---------------------------------------------------------------------------
 #[actix_rt::test]
 async fn test_cache_invalidation() {
+    let _pool = fixtures::setup_test_db().await;
     let cache = S3Cache::new(3600);
     cache.set("key1".to_string(), "etag1".to_string()).await;
     cache.set("key2".to_string(), "etag2".to_string()).await;
