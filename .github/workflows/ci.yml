@@ -121,6 +121,33 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
         run: cargo test --test wave5_final_smoke -- --test-threads=1
 
+      - name: cargo test (Session management tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+          REDIS_URL: redis://127.0.0.1:6379
+        run: cargo test --test day14_session_management -- --test-threads=1
+
+      - name: cargo test (S3 operations tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test s3_basic_operations_test -- --test-threads=1
+
+      - name: cargo test (Presigned URL tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test presigned_urls_test -- --test-threads=1
+
+      - name: cargo test (Migration performance tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+          REDIS_URL: redis://127.0.0.1:6379
+        run: cargo test --test migration_performance_test -- --test-threads=1
+
+      - name: cargo test (E2E file API tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test e2e_file_api_test -- --test-threads=1
+
   # ── Release Build ─────────────────────────────────────────────────────────────
   build:
     name: Release Build
