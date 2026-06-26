@@ -68,6 +68,21 @@ pub async fn setup_test_db() -> PgPool {
     .await
     .expect("Failed to create upload_sessions table");
 
+    // Create migration history table (best-effort due to concurrent test races)
+    let _ = sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS _sqlx_migrations (
+            version BIGINT PRIMARY KEY,
+            description TEXT NOT NULL,
+            installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            execution_time BIGINT NOT NULL,
+            success BOOLEAN NOT NULL
+        )
+        "#,
+    )
+    .execute(&pool)
+    .await;
+
     pool
 }
 

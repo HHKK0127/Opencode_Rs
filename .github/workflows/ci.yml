@@ -148,6 +148,21 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
         run: cargo test --test e2e_file_api_test -- --test-threads=1
 
+      - name: cargo test (Users API tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test users_api_test -- --test-threads=1
+
+      - name: cargo test (Admin API tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test admin_api_test -- --test-threads=1
+
+      - name: cargo test (Metrics API tests)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/opencode_test
+        run: cargo test --test metrics_api_test -- --test-threads=1
+
   # ── Release Build ─────────────────────────────────────────────────────────────
   build:
     name: Release Build
