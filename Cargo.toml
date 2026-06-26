@@ -1,3 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "opencode-core",
+    "opencode-desktop",
+]
+
 [package]
 name = "opencode_poc"
 version = "0.1.0"

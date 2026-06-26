@@ -2589,6 +2589,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
+name = "opencode-core"
+version = "0.1.0"
+dependencies = [
+ "actix-web",
+ "async-trait",
+ "base64 0.22.1",
+ "bytes",
+ "chrono",
+ "futures",
+ "hex",
+ "log",
+ "parking_lot",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "opencode-desktop"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "opencode-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "opencode_poc"
 version = "0.1.0"
 dependencies = [
