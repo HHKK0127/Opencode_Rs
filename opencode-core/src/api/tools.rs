@@ -1,6 +1,5 @@
-use actix_web::{get, HttpResponse};
+use actix_web::HttpResponse;
 
-#[get("/experimental/tool/ids")]
 pub async fn tool_ids() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({
         "ids": [
@@ -16,7 +15,6 @@ pub async fn tool_ids() -> HttpResponse {
     }))
 }
 
-#[get("/experimental/tool")]
 pub async fn list_tools() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({
         "tools": [

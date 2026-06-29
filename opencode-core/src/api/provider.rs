@@ -1,4 +1,4 @@
-use actix_web::{get, put, HttpResponse};
+use actix_web::HttpResponse;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -6,7 +6,6 @@ struct ProviderListResponse {
     providers: Vec<serde_json::Value>,
 }
 
-#[get("/provider")]
 pub async fn list_providers() -> HttpResponse {
     let providers = vec![
         serde_json::json!({
@@ -33,17 +32,14 @@ pub async fn list_providers() -> HttpResponse {
     HttpResponse::Ok().json(ProviderListResponse { providers })
 }
 
-#[put("/provider/{id}")]
 pub async fn update_provider() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({"status": "ok"}))
 }
 
-#[get("/provider/{id}/oauth/authorize")]
 pub async fn provider_oauth_authorize() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({"url": ""}))
 }
 
-#[get("/provider/auth")]
 pub async fn provider_auth() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({"providers": []}))
 }

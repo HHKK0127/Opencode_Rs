@@ -1,4 +1,4 @@
-use actix_web::{get, web::Query, HttpResponse};
+use actix_web::{HttpResponse, web::Query};
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
@@ -16,7 +16,6 @@ pub struct FindSymbolParams {
     pub path: Option<String>,
 }
 
-#[get("/find/file")]
 pub async fn find_file(params: Query<FindFileParams>) -> HttpResponse {
     let dir = params.path.as_deref().unwrap_or(".");
     let pattern = params.pattern.as_deref().unwrap_or("*");
@@ -28,7 +27,6 @@ pub async fn find_file(params: Query<FindFileParams>) -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({"results": results}))
 }
 
-#[get("/find/symbol")]
 pub async fn find_symbol() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({"results": []}))
 }
