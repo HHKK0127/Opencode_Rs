@@ -2,6 +2,7 @@
 name = "opencode-desktop"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.79.0"
 
 [dependencies]
 opencode-core = { path = "../opencode-core" }
@@ -10,3 +11,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
 log = "0.4"
+anyhow = "1.0"
+tauri = { version = "2", features = ["devtools"] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

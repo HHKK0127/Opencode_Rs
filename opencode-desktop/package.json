@@ -1,0 +1,25 @@
+{
+    "name": "opencode-desktop-ui",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@assistant-ui/react": "^0.14.24",
+        "@assistant-ui/react-opencode": "^0.2.10",
+        "@opencode-ai/sdk": "^1.17.11",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.15",
+        "@types/react-dom": "^18.2.7",
+        "@vitejs/plugin-react": "^4.0.3",
+        "typescript": "^5.0.2",
+        "vite": "^4.4.5"
+    }
+}
