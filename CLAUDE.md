@@ -4,31 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Context
 
-This is a **Proof of Concept (PoC)** for migrating OpenCode (43K-line TypeScript AI development tool) to a hybrid Rust backend. The project follows the **Strangler Fig pattern** with staged implementation (Wave 1-4 over 90-120 days with 2-person team).
+### PoC Crate (opencode_poc — root `src/`)
+**Proof of Concept** for migrating OpenCode (43K-line TypeScript) to Rust backend via Strangler Fig.
 
-**Current Status**: Wave 5 完全完成 (2026-06-25) — **本番移行 GO ✅**
-- Wave 1 (完全完成): JWT認証・ミドルウェア・基盤層（30テスト）
-- Wave 2 (完全完成): ファイル処理API・チャンク化・検索（47テスト）
-- Wave 3 (完全完成): S3/MinIO クラウドストレージ（45テスト）
-- Wave 4 (完全完成): Redis キャッシング・セッション管理（107テスト）
-- Wave 5 (完全完成): 本番化準備・Kubernetes・CI/CD・Canary リリース（18テスト）
-  - **総テスト数: 229/229 (100%) ✅**
-  - Kubernetes マニフェスト・HPA・Canary デプロイ ✅
-  - GitHub Actions CI/CD パイプライン ✅
-  - Prometheus アラートルール + Grafana ダッシュボード ✅
-  - Request ID ミドルウェア + Structured Logging ✅
-  - Wave 3詳細計画完成 ✅ (S3/MinIO 3週間実装計画)
-  - **ドキュメント階層化** ✅ (docs/API, Operations, Performance, Planning)
-  - **コード修正実装** ✅ (auth_middleware + error.rs)
+**Status**: Wave 5 完全完成 (2026-06-25) — **本番移行 GO ✅**
+- Wave 1-5: 229/229 tests (100%) ✅
+- JWT auth, File API, S3/MinIO, Redis, K8s, CI/CD, Canary
+- See `README.md` for full details.
+
+### OpenCode Desktop (opencode-core — `opencode-core/`)
+**Rust reimplementation of OpenCode Desktop backend server** using OpenCode v2 API protocol.
+
+**Status**: Wave 5 拡張 — **V2 API Phase 1 実装完了 ✅**
+- OpenCode v2 API: SSE streaming, Session CRUD, Mock LLM prompt ✅
+- Question/Permission endpoints ✅
+- Event bus for real-time updates ✅
+- Build: `cargo build` (opencode-core/) ✅
+- See `README.md` for endpoint list.
 
 ## Development Commands
 
 ### Build & Compilation
 ```bash
-# Debug build (fast iteration, unoptimized)
+# Workspace build (all crates)
 cargo build
 
-# Release build (optimized, ~37s, 8.64 MB binary)
+# Debug build (fast iteration, unoptimized)
+cargo build -p opencode-core
+
+# Release build (optimized)
 cargo build --release
 
 # Clean build artifacts
@@ -37,32 +41,42 @@ cargo clean
 
 ### Testing & Verification
 ```bash
-# Run all tests
+# Run all workspace tests
 cargo test
 
-# Run tests in release mode
-cargo test --release
+# Run tests in specific crate
+cargo test -p opencode-core
 
 # Run with backtrace for debugging
 RUST_BACKTRACE=1 cargo test
 ```
 
 ### Running the Server
+
+#### PoC Server (opencode_poc)
 ```bash
-# Development (debug binary, with config/development.toml)
+# Development (with config/development.toml)
 cargo run
 
-# Production (release binary, with config/production.toml)
+# Production (with config/production.toml)
 ENVIRONMENT=production cargo run --release
-
-# Direct execution of compiled binary
-./target/release/opencode_poc.exe
 
 # Docker container
 docker-compose up -d
 ```
 
-### Database
+#### OpenCode Desktop Server (opencode-core)
+```bash
+# Development server
+cargo run -p opencode-core
+
+# With frontend (served from opencode-desktop/)
+cargo run -p opencode-core
+
+# Server at http://127.0.0.1:8080
+```
+
+### Database (PoC only)
 ```bash
 # Database initializes automatically on first server start
 # Creates: users table, files table
@@ -74,7 +88,7 @@ docker-compose up -d
 ## Architecture Overview
 
 ### High-Level Structure
-```
+```sh
 opencode_poc/
 ├── src/
 │   ├── main.rs                 # Server initialization, DB setup, config loading
@@ -95,6 +109,40 @@ opencode_poc/
 │   ├── middleware_logging.rs   # Structured logging initialization
 │   └── middleware_rate_limit.rs # Rate limiting placeholder
 │
+├── opencode-core/
+│   ├── Cargo.toml
+│   └── src/
+│       ├── bin/server.rs       # Binary entrypoint
+│       ├── lib.rs              # Crate root (5 modules)
+│       ├── auth.rs             # BasicAuth middleware
+│       ├── config.rs           # Env-based config
+│       ├── models.rs           # Shared data models + V2 types
+│       ├── server.rs           # OpenCodeServer struct
+│       └── api/
+│           ├── mod.rs          # Module declarations
+│           ├── router.rs       # Central route registration
+│           ├── events.rs       # EventBus + SSE streaming
+│           ├── session.rs      # Session CRUD (V1+V2)
+│           ├── prompt.rs       # Prompt handler + mock LLM
+│           ├── question.rs     # Question endpoints
+│           ├── permission.rs   # Permission endpoints
+│           ├── health.rs       # Health check endpoints
+│           ├── config.rs       # Config endpoints
+│           ├── provider.rs     # Provider listing
+│           ├── tools.rs        # Tool enumeration
+│           ├── find.rs         # File/symbol search
+│           └── static_files.rs # Frontend serving
+│
+├── opencode-desktop/
+│   ├── Cargo.toml
+│   ├── package.json           # Vite + React + TypeScript
+│   ├── vite.config.ts
+│   ├── index.html
+│   └── src/
+│       ├── main.rs            # Tauri binary (future)
+│       ├── main.tsx           # React entrypoint
+│       └── App.tsx            # Root component (assistant-ui)
+│
 ├── config/
 │   ├── development.toml        # Development settings (local dev)
 │   └── production.toml         # Production settings (Docker/cloud)
@@ -109,23 +157,15 @@ opencode_poc/
 │
 ├── Dockerfile                   # Multi-stage build (builder + runtime)
 ├── docker-compose.yml           # Service orchestration
-├── docs/                        # 📚 Unified Documentation Hub (Wave 2 Day 5)
-│   ├── INDEX.md                # Navigation index for all docs
+├── docs/                        # 📚 Unified Documentation Hub
+│   ├── INDEX.md                # Navigation index
 │   ├── API/
-│   │   └── API_SPECIFICATION.md # All endpoints + /api/v1/metrics
+│   │   └── API_SPECIFICATION.md
 │   ├── Operations/
-│   │   ├── DEPLOYMENT.md       # Deployment guide & checklist
-│   │   ├── CANARY_RELEASE_PLAN.md # 3-phase production rollout
-│   │   ├── RUNBOOK.md          # Emergency response & on-call
-│   │   ├── OPERATIONS_GUIDE.md # Daily operations & troubleshooting
-│   │   └── MONITORING.md       # Prometheus/Grafana/Slack setup
 │   ├── Performance/
-│   │   ├── PERFORMANCE_BENCHMARKS.md # SLO & load test results
-│   │   └── LOAD_TEST_PLAN.md   # Day 5 load test scenarios
 │   └── Planning/
-│       └── WAVE3_DETAILED_PLAN.md # S3/MinIO 3-week plan
 ├── .env.example                 # Environment template
-└── Cargo.toml                   # Dependencies (Actix-web 4.5, SQLx, Argon2, etc.)
+└── Cargo.toml                   # Workspace root
 ```
 
 ### Core Patterns

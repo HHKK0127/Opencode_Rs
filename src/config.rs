@@ -1,6 +1,54 @@
 use config::{Config, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
 use std::env;
+use once_cell::sync::Lazy;
+use tracing::warn;
+
+/// JWT_SECRET - 環境変数から取得（起動時に必須チェック）
+/// 生成方法: export JWT_SECRET=$(openssl rand -base64 32)
+pub static JWT_SECRET: Lazy<String> = Lazy::new(|| {
+    env::var("JWT_SECRET")
+        .expect("JWT_SECRET environment variable must be set. Generate with: openssl rand -base64 32")
+});
+
+/// JWT有効期限（時間）- デフォルト24時間
+pub static JWT_EXPIRATION_HOURS: Lazy<u32> = Lazy::new(|| {
+    env::var("JWT_EXPIRATION_HOURS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(24)
+});
+
+/// Argon2 メモリコスト（KB）- OWASP推奨: 64MB (65536 KB)
+pub static ARGON2_MEMORY_COST: Lazy<u32> = Lazy::new(|| {
+    env::var("ARGON2_MEMORY_COST")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(65536)
+});
+
+/// Argon2 反復回数 - OWASP推奨: 3
+pub static ARGON2_TIME_COST: Lazy<u32> = Lazy::new(|| {
+    env::var("ARGON2_TIME_COST")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3)
+});
+
+/// Argon2 並列度 - OWASP推奨: 4
+pub static ARGON2_PARALLELISM: Lazy<u32> = Lazy::new(|| {
+    env::var("ARGON2_PARALLELISM")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(4)
+});
+
+/// Redis必須フラグ
+pub static REDIS_REQUIRED: Lazy<bool> = Lazy::new(|| {
+    env::var("REDIS_REQUIRED")
+        .map(|s| s == "true")
+        .unwrap_or(false)
+});
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Server {
@@ -14,6 +62,8 @@ pub struct Database {
     pub url: String,
     pub auto_init: bool,
     pub max_connections: u32,
+    pub min_connections: u32,
+    pub acquire_timeout_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,7 +74,7 @@ pub struct Logging {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
-    pub jwt_secret: String,
+    pub jwt_secret: String,  // 実行時には使用せず、JWT_SECRETを直接使用
     pub token_expiry_hours: u32,
 }
 
@@ -114,7 +164,7 @@ fn default_concurrent_parts() -> usize {
 pub struct Storage {
     #[serde(rename = "type")]
     #[serde(default = "default_storage_type")]
-    pub storage_type: String,  // "s3" or "local"
+    pub storage_type: String,
     #[serde(default)]
     pub s3: S3Config,
     #[serde(default)]
@@ -140,14 +190,33 @@ pub struct Settings {
 
 impl Settings {
     pub fn new() -> Result<Self, ConfigError> {
+        // .envファイル読み込み（開発環境）
+        if env::var("RUST_ENV").unwrap_or_default() == "development" {
+            let _ = dotenv::dotenv();
+        }
+
+        // JWT_SECRETが設定されているか検証
+        let _ = JWT_SECRET.as_str(); // ここで未設定ならpanic
+
         let env = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
 
         let config = Config::builder()
-            .add_source(File::with_name(&format!("config/{}", env)))
+            .add_source(File::with_name(&format!("config/{}", env)).required(false))
             .add_source(Environment::with_prefix("OPENCODE").try_parsing(true).separator("__"))
             .build()?;
 
         config.try_deserialize()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_jwt_expiration_default() {
+        std::env::set_var("JWT_SECRET", "test_secret_for_testing_only");
+        assert_eq!(*JWT_EXPIRATION_HOURS, 24);
     }
 }
 
@@ -163,15 +232,17 @@ impl Default for Settings {
                 url: std::env::var("DATABASE_URL")
                     .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode".to_string()),
                 auto_init: true,
-                max_connections: 5,
+                max_connections: 50,
+                min_connections: 5,
+                acquire_timeout_secs: 5,
             },
             logging: Logging {
-                level: "debug".to_string(),
+                level: "info".to_string(),
                 format: "compact".to_string(),
             },
             auth: Auth {
-                jwt_secret: "dev_secret_key_change_in_production".to_string(),
-                token_expiry_hours: 24,
+                jwt_secret: "MUST_BE_SET_FROM_ENV".to_string(),
+                token_expiry_hours: *JWT_EXPIRATION_HOURS,
             },
             upload: Upload {
                 max_file_size_mb: 10,

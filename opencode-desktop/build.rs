@@ -1,3 +1,4 @@
 fn main() {
-    tauri_build::build()
+    // No-op build script for now
+    // Tauri support to be added in future phases
 }

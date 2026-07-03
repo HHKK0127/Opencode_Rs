@@ -2,6 +2,8 @@
 resolver = "2"
 members = [
     "opencode-core",
+]
+exclude = [
     "opencode-desktop",
 ]
 
@@ -29,6 +31,7 @@ thiserror = "1.0"
 
 # Security
 argon2 = "0.5"
+rand = "0.8"
 rand_core = { version = "0.6", features = ["getrandom"] }
 jsonwebtoken = "9.2"
 chrono = { version = "0.4", features = ["serde"] }
@@ -57,6 +60,8 @@ governor = "0.6"
 # Configuration Management
 config = "0.14"
 dotenvy = "0.15"
+dotenv = "0.15"
+tempfile = "3.8"
 
 # Redis (Wave 4)
 redis = { version = "0.24", features = ["aio", "tokio-comp", "connection-manager"] }
@@ -65,6 +70,7 @@ tokio-util = "0.7"
 # Metrics & Monitoring
 prometheus = "0.13"
 lazy_static = "1.4"
+once_cell = "1.19"
 
 # AWS S3 / MinIO (Wave 3)
 aws-config = { version = "1.0", features = ["behavior-version-latest"] }

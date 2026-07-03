@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult};
+use uuid::Uuid;
 
 /// File validation constraints for production
 pub struct FileValidationRules {
@@ -121,21 +122,31 @@ impl FileValidator {
     }
 }
 
-/// Sanitize filename - remove/replace dangerous characters
+/// UUID形式の検証
+pub fn is_valid_uuid(s: &str) -> bool {
+    Uuid::parse_str(s).is_ok()
+}
+
+/// ファイル名のサニタイズ
 pub fn sanitize_filename(filename: &str) -> String {
     filename
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect::<String>()
-        .trim_end_matches('.')
+        .replace("..", "")
+        .replace("/", "")
+        .replace("\\", "")
+        .trim()
         .to_string()
 }
+
+/// ページ番号の検証（正の整数）
+pub fn validate_page(page: Option<u32>) -> u32 {
+    page.unwrap_or(1).max(1)
+}
+
+/// per_pageの検証（1-100）
+pub fn validate_per_page(per_page: Option<u32>) -> u32 {
+    per_page.unwrap_or(20).min(100).max(1)
+}
+
 
 /// Validate request headers for security
 pub fn validate_content_length(content_length: Option<u64>, max_bytes: usize) -> AppResult<()> {
@@ -193,9 +204,31 @@ mod tests {
     }
 
     #[test]
+    fn test_valid_uuid() {
+        assert!(is_valid_uuid("550e8400-e29b-41d4-a716-446655440000"));
+        assert!(!is_valid_uuid("invalid-uuid"));
+        assert!(!is_valid_uuid(""));
+    }
+
+    #[test]
     fn test_sanitize_filename() {
-        assert_eq!(sanitize_filename("file name.pdf"), "file_name.pdf");
-        assert_eq!(sanitize_filename("../../../etc"), ".._.._.._etc");
+        assert_eq!(sanitize_filename("../../../etc/passwd"), "etcpasswd");
+        assert_eq!(sanitize_filename("file/name"), "filename");
         assert_eq!(sanitize_filename("normal-file.txt"), "normal-file.txt");
+    }
+
+    #[test]
+    fn test_validate_page() {
+        assert_eq!(validate_page(Some(5)), 5);
+        assert_eq!(validate_page(Some(0)), 1); // 0 は 1 に正規化
+        assert_eq!(validate_page(None), 1); // デフォルト
+    }
+
+    #[test]
+    fn test_validate_per_page() {
+        assert_eq!(validate_per_page(Some(20)), 20);
+        assert_eq!(validate_per_page(Some(150)), 100); // 上限 100
+        assert_eq!(validate_per_page(Some(0)), 1); // 下限 1
+        assert_eq!(validate_per_page(None), 20); // デフォルト
     }
 }
