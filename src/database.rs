@@ -20,9 +20,13 @@ impl DatabaseConfig {
 pub async fn create_pool(config: &DatabaseConfig) -> Result<SqlitePool, sqlx::Error> {
     info!("Creating database pool: SQLite");
 
+    let options = sqlx::sqlite::SqliteConnectOptions::new()
+        .filename(&config.url.replace("sqlite:///", "").replace("sqlite://", ""))
+        .create_if_missing(true);
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(&config.url)
+        .connect_with(options)
         .await?;
 
     // 接続テスト
