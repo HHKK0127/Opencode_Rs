@@ -49,6 +49,16 @@ pub static REDIS_REQUIRED: Lazy<bool> = Lazy::new(|| {
         .unwrap_or(false)
 });
 
+/// DATABASE_URL - PostgreSQL / SQLite フォールバック
+/// PostgreSQL: postgresql://user:pass@host:port/dbname
+/// SQLite: sqlite://./poc_test.db (デフォルト)
+pub static DATABASE_URL: Lazy<String> = Lazy::new(|| {
+    env::var("DATABASE_URL").unwrap_or_else(|_| {
+        tracing::warn!("DATABASE_URL not set, using SQLite fallback: sqlite://./poc_test.db");
+        "sqlite://./poc_test.db".to_string()
+    })
+});
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Server {
     pub host: String,

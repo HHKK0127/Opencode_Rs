@@ -1,9 +1,9 @@
 use std::env;
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use sqlx::AnyPool;
 use tracing::{info, warn};
 use crate::error::AppError;
 
-pub type DbPool = PgPool;
+pub type DbPool = AnyPool;
 
 #[derive(Debug, Clone)]
 pub struct EnvConfig {
@@ -25,27 +25,26 @@ pub fn validate_environment() -> Result<EnvConfig, AppError> {
         ));
     }
 
-    let database_url = env::var("DATABASE_URL").map_err(|_| {
-        AppError::BadRequest("DATABASE_URL が設定されていません".to_string())
-    })?;
+    // DATABASE_URL: PostgreSQL または SQLite フォールバック
+    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| {
+        info!("ℹ️  DATABASE_URL が設定されていません。SQLite フォールバックを使用します");
+        "sqlite://./poc_test.db".to_string()
+    });
 
-    if !database_url.starts_with("postgresql://") && !database_url.starts_with("postgres://") {
-        return Err(AppError::BadRequest(
-            "DATABASE_URL は 'postgresql://' または 'postgres://' で始まる必要があります".to_string()
-        ));
-    }
-
-    info!("✅ 環境変数検証完了");
+    info!("✅ 環境変数検証完了 (DB: {})", 
+        if database_url.starts_with("sqlite://") { "SQLite" } else { "PostgreSQL" });
     Ok(EnvConfig { jwt_secret, database_url })
 }
 
 /// フェーズ2: DB接続テスト
 pub async fn create_and_test_pool(db_url: &str) -> Result<DbPool, AppError> {
-    info!("🔍 フェーズ 2: DB接続テスト中...");
+    info!("🔍 フェーズ 2: DB接続テスト中 ({})...", 
+        if db_url.starts_with("sqlite://") { "SQLite" } else { "PostgreSQL" });
 
-    let pool = PgPoolOptions::new()
-        .max_connections(50)
-        .min_connections(5)
+    // AnyPool を使用して PostgreSQL/SQLite 両対応
+    let pool = sqlx::any::AnyPoolOptions::new()
+        .max_connections(10)  // SQLite は単一スレッドのため低めに設定
+        .min_connections(1)
         .connect(db_url)
         .await
         .map_err(|e| {
@@ -112,29 +111,31 @@ pub async fn initialize_schema(pool: &DbPool) -> Result<(), AppError> {
 }
 
 /// フェーズ4: テストユーザー作成
-pub async fn ensure_test_user(pool: &DbPool) -> Result<(), AppError> {
+pub async fn ensure_test_user(pool: &DbPool, db_url: &str) -> Result<(), AppError> {
     info!("🔍 フェーズ 4: テストユーザー確保中...");
 
     let test_user_id = uuid::Uuid::new_v4().to_string();
     // testuser/testpassword (Argon2でハッシュ済み)
     let password_hash = "$argon2id$v=19$m=65536,t=3,p=4$dGVzdHBhc3N3b3Jk$test_hash_placeholder";
 
-    sqlx::query(
-        r#"
-        INSERT INTO users (id, username, password_hash) 
-        VALUES ($1, $2, $3) 
-        ON CONFLICT (username) DO NOTHING
-        "#,
-    )
-    .bind(test_user_id)
-    .bind("testuser")
-    .bind(password_hash)
-    .execute(pool)
-    .await
-    .map_err(|e| {
-        warn!("❌ テストユーザー作成失敗: {}", e);
-        AppError::Database(format!("ユーザー作成失敗: {}", e))
-    })?;
+    // SQLiteではプレースホルダが `?` 、PostgreSQLは `$1` など
+    let is_sqlite = db_url.starts_with("sqlite://");
+    let query_str = if is_sqlite {
+        "INSERT OR IGNORE INTO users (id, username, password_hash) VALUES (?, ?, ?)"
+    } else {
+        "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3) ON CONFLICT (username) DO NOTHING"
+    };
+
+    sqlx::query(query_str)
+        .bind(test_user_id)
+        .bind("testuser")
+        .bind(password_hash)
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            warn!("❌ テストユーザー作成失敗: {}", e);
+            AppError::Database(format!("ユーザー作成失敗: {}", e))
+        })?;
 
     info!("✅ テストユーザー確保完了");
     Ok(())
@@ -154,7 +155,7 @@ pub async fn validate_and_init() -> Result<DbPool, AppError> {
     initialize_schema(&pool).await?;
 
     // フェーズ4: テストユーザー確保
-    ensure_test_user(&pool).await?;
+    ensure_test_user(&pool, &env_config.database_url).await?;
 
     info!("✅ アプリケーション初期化完了 - サーバー起動準備完了");
     Ok(pool)
