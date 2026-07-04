@@ -75,10 +75,10 @@ pub async fn login(
 
             info!("User logged in: {}", username);
 
-            Ok(HttpResponse::Ok().json(AuthResponse {
+            Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(AuthResponse {
                 token,
                 expires_in,
-            }))
+            })))
         }
         None => {
             warn!("Login attempt for non-existent user: {}", username);
@@ -151,11 +151,11 @@ pub async fn register(
 
     info!("User registered: {}", username);
 
-    Ok(HttpResponse::Created().json(RegisterResponse {
+    Ok(HttpResponse::Created().json(crate::models::ApiResponse::success(RegisterResponse {
         id: user_id,
         username: username.clone(),
         created_at: now,
-    }))
+    })))
 }
 
 /// パスワード強度検証
@@ -194,10 +194,10 @@ pub async fn refresh_token(
     let token = generate_token(&claims.sub, &claims.username)?;
     let expires_in = *JWT_EXPIRATION_HOURS as i64 * 3600;
 
-    Ok(HttpResponse::Ok().json(AuthResponse {
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(AuthResponse {
         token,
         expires_in,
-    }))
+    })))
 }
 
 #[post("/auth/reset-password")]

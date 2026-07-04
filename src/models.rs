@@ -1,4 +1,73 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+// ============================================================
+// 統一API Response Envelope (Wave 6: フロントエンド統合)
+// ============================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiResponse<T: Serialize> {
+    pub status: String,         // "success" or "error"
+    pub data: Option<T>,        // Response data (null on error)
+    pub error: Option<ApiError>, // Error details (null on success)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>, // ISO 8601 timestamp
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiError {
+    pub code: String,           // Error code (e.g., "UNAUTHORIZED", "VALIDATION_ERROR")
+    pub message: String,        // User-facing message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>, // Technical details (dev only)
+}
+
+impl<T: Serialize> ApiResponse<T> {
+    pub fn success(data: T) -> Self {
+        Self {
+            status: "success".to_string(),
+            data: Some(data),
+            error: None,
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+        }
+    }
+
+    pub fn error(code: &str, message: &str) -> Self {
+        Self {
+            status: "error".to_string(),
+            data: None,
+            error: Some(ApiError {
+                code: code.to_string(),
+                message: message.to_string(),
+                details: None,
+            }),
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+        }
+    }
+
+    pub fn error_with_details(code: &str, message: &str, details: &str) -> Self {
+        Self {
+            status: "error".to_string(),
+            data: None,
+            error: Some(ApiError {
+                code: code.to_string(),
+                message: message.to_string(),
+                details: Some(details.to_string()),
+            }),
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+        }
+    }
+}
+
+// Generic empty response
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EmptyResponse {
+    pub message: String,
+}
+
+// ============================================================
+// 既存のモデル定義（互換性維持）
+// ============================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuthRequest {
