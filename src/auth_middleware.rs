@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use std::rc::Rc;
 
-use crate::{error::AppError, models::Claims, app_state::AppState, cache::session::SessionManager};
+use crate::{error::AppError, models::Claims, app_state::AppState, cache::session::SessionManager, config::JWT_SECRET};
 use tracing::warn;
 
 pub struct AuthMiddleware;
@@ -70,13 +70,8 @@ where
             if let Some(auth_header) = req.headers().get("Authorization") {
                 if let Ok(auth_str) = auth_header.to_str() {
                     if let Some(token) = auth_str.strip_prefix("Bearer ") {
-                        // Get JWT secret from cached AppState (no file I/O)
-                        let jwt_secret = if let Some(state) = app_state {
-                            &state.settings.auth.jwt_secret
-                        } else {
-                            // Fallback (should not happen in normal operation)
-                            &crate::config::Settings::default().auth.jwt_secret
-                        };
+                        // Use JWT_SECRET directly (consistent with auth.rs)
+                        let jwt_secret = JWT_SECRET.as_str();
 
                         match verify_jwt(token, jwt_secret) {
                             Ok(claims) => {
