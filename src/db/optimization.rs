@@ -1,15 +1,15 @@
-use sqlx::AnyPool;
+use sqlx::sqlite::SqlitePool;
 use log::info;
 
 /// Apply performance optimizations — PostgreSQL uses server-side config (postgresql.conf).
 /// SQLite では不要。
-pub async fn optimize_database(pool: &AnyPool) -> Result<(), sqlx::Error> {
+pub async fn optimize_database(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     info!("Performance tuning handled by server config");
     Ok(())
 }
 
 /// Run ANALYZE to update planner statistics
-pub async fn analyze_tables(pool: &AnyPool) -> Result<(), sqlx::Error> {
+pub async fn analyze_tables(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     info!("Running database analysis...");
     // SQLite と PostgreSQL 両対応: ANALYZE は両方で利用可能
     sqlx::query("ANALYZE").execute(pool).await?;
@@ -18,7 +18,7 @@ pub async fn analyze_tables(pool: &AnyPool) -> Result<(), sqlx::Error> {
 }
 
 /// Run VACUUM to reclaim space
-pub async fn vacuum_database(pool: &AnyPool) -> Result<(), sqlx::Error> {
+pub async fn vacuum_database(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     info!("Running database vacuum...");
     // SQLite と PostgreSQL 両対応: VACUUM は両方で利用可能
     sqlx::query("VACUUM").execute(pool).await?;
@@ -27,7 +27,7 @@ pub async fn vacuum_database(pool: &AnyPool) -> Result<(), sqlx::Error> {
 }
 
 /// Get database statistics from pg_database (PostgreSQL) または プラグマ (SQLite)
-pub async fn get_database_stats(pool: &AnyPool) -> Result<DatabaseStats, sqlx::Error> {
+pub async fn get_database_stats(pool: &SqlitePool) -> Result<DatabaseStats, sqlx::Error> {
     // シンプル実装: 両方でサポートされているクエリを使用
     // ただしこの場合は、pg_database_size は PostgreSQL 専用なので、
     // スキップするか簡易版を返す

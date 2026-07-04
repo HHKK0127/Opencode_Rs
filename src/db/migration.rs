@@ -1,8 +1,8 @@
-﻿use sqlx::{AnyPool, Row};
+use sqlx::sqlite::SqlitePool;
 use log::info;
 
 /// Initialize database with initial schema and migrations
-pub async fn init_database(pool: &AnyPool) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn init_database(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Error>> {
     info!("Initializing database schema...");
     create_migration_history_table(pool).await?;
     run_all_migrations(pool).await?;
@@ -10,7 +10,7 @@ pub async fn init_database(pool: &AnyPool) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
-async fn create_migration_history_table(pool: &AnyPool) -> Result<(), sqlx::Error> {
+async fn create_migration_history_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS _sqlx_migrations (
@@ -29,7 +29,7 @@ async fn create_migration_history_table(pool: &AnyPool) -> Result<(), sqlx::Erro
     Ok(())
 }
 
-async fn run_all_migrations(pool: &AnyPool) -> Result<(), sqlx::Error> {
+async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     let migrations = vec![
         (1, "001_create_users_table", include_str!("../../migrations/001_create_users_table.sql")),
         (2, "002_create_files_table", include_str!("../../migrations/002_create_files_table.sql")),
@@ -64,7 +64,7 @@ async fn run_all_migrations(pool: &AnyPool) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-async fn migration_exists(pool: &AnyPool, version: i32) -> Result<bool, sqlx::Error> {
+async fn migration_exists(pool: &SqlitePool, version: i32) -> Result<bool, sqlx::Error> {
     let result: Option<(i64,)> = sqlx::query_as(
         "SELECT version FROM _sqlx_migrations WHERE version = $1"
     )
@@ -75,7 +75,7 @@ async fn migration_exists(pool: &AnyPool, version: i32) -> Result<bool, sqlx::Er
     Ok(result.is_some())
 }
 
-pub async fn get_migration_history(pool: &AnyPool) -> Result<Vec<MigrationRecord>, sqlx::Error> {
+pub async fn get_migration_history(pool: &SqlitePool) -> Result<Vec<MigrationRecord>, sqlx::Error> {
     let records = sqlx::query_as::<_, (i64, String, String, i64, bool)>(
         "SELECT version, description, installed_on::text, execution_time, success
          FROM _sqlx_migrations ORDER BY version ASC"

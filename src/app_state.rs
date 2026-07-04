@@ -1,14 +1,14 @@
 use crate::cache::{RedisCache, CacheTTLConfig};
 use crate::config::Settings;
 use crate::storage::StorageBackend;
-use sqlx::AnyPool;
+use sqlx::sqlite::SqlitePool;
 use std::sync::Arc;
 
 /// Application state container shared across all requests via web::Data<AppState>
 #[derive(Clone)]
 pub struct AppState {
     pub settings: Arc<Settings>,
-    pub db: AnyPool,
+    pub db: SqlitePool,
     pub storage: Arc<dyn StorageBackend>,
     /// Optional Redis cache (Wave 4)
     pub cache: Option<Arc<RedisCache>>,
@@ -19,7 +19,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         settings: Settings,
-        db: AnyPool,
+        db: SqlitePool,
         storage: Arc<dyn StorageBackend>,
         cache: Option<Arc<RedisCache>>,
     ) -> Self {

@@ -176,7 +176,7 @@ async fn db_health_check_handler(app_state: web::Data<app_state::AppState>) -> H
     }
 }
 
-async fn initialize_db(pool: &sqlx::AnyPool) -> Result<(), sqlx::Error> {
+async fn initialize_db(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::Error> {
     // Users table
     sqlx::query(
         r#"
@@ -246,7 +246,7 @@ async fn initialize_db(pool: &sqlx::AnyPool) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-async fn create_test_user(pool: &sqlx::AnyPool) -> Result<(), sqlx::Error> {
+async fn create_test_user(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::Error> {
     use argon2::{Argon2, PasswordHasher};
     use argon2::password_hash::SaltString;
     use rand_core::OsRng;

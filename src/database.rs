@@ -1,4 +1,4 @@
-use sqlx::AnyPool;
+use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::time::Duration;
 use tracing::info;
 
@@ -17,13 +17,13 @@ impl DatabaseConfig {
     }
 }
 
-pub async fn create_pool(config: &DatabaseConfig) -> Result<AnyPool, sqlx::Error> {
-    info!("Creating database pool: {}", 
-        if config.url.starts_with("sqlite://") { "SQLite" } else { "PostgreSQL" }
-    );
+pub async fn create_pool(config: &DatabaseConfig) -> Result<SqlitePool, sqlx::Error> {
+    info!("Creating database pool: SQLite");
 
-    // シンプルに接続
-    let pool = sqlx::AnyPool::connect(&config.url).await?;
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect(&config.url)
+        .await?;
 
     // 接続テスト
     sqlx::query("SELECT 1").execute(&pool).await?;
@@ -33,7 +33,7 @@ pub async fn create_pool(config: &DatabaseConfig) -> Result<AnyPool, sqlx::Error
 }
 
 /// ヘルスチェック
-pub async fn health_check(pool: &AnyPool) -> Result<Duration, sqlx::Error> {
+pub async fn health_check(pool: &SqlitePool) -> Result<Duration, sqlx::Error> {
     let start = std::time::Instant::now();
     sqlx::query("SELECT 1").fetch_one(pool).await?;
     let elapsed = start.elapsed();
