@@ -156,7 +156,8 @@ mod tests {
         let settings = crate::config::Settings::default();
         let now = Utc::now();
         let claims = Claims {
-            sub: "test-user".to_string(),
+            sub: "test-user-id".to_string(),
+            username: "testuser".to_string(),
             iat: now.timestamp(),
             exp: (now + chrono::Duration::hours(24)).timestamp(),
         };
@@ -170,7 +171,7 @@ mod tests {
 
         let verified = verify_jwt(&token, &settings.auth.jwt_secret);
         assert!(verified.is_ok());
-        assert_eq!(verified.unwrap().sub, "test-user");
+        assert_eq!(verified.unwrap().sub, "test-user-id");
     }
 
     #[test]

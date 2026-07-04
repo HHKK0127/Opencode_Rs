@@ -1,4 +1,4 @@
-use crate::cache::{RedisCache, CacheAsideStrategy, WriteThroughStrategy, CacheTTLConfig, CacheInvalidationManager};
+use crate::cache::{RedisCache, CacheTTLConfig};
 use crate::config::Settings;
 use crate::storage::StorageBackend;
 use sqlx::PgPool;
@@ -32,16 +32,6 @@ impl AppState {
         }
     }
 
-    /// Check if cache is available
-    pub fn cache_available(&self) -> bool {
-        self.cache.is_some()
-    }
-
-    /// Get Redis cache if available
-    pub fn get_cache(&self) -> Option<&Arc<RedisCache>> {
-        self.cache.as_ref()
-    }
-
     /// Get TTL config
     pub fn get_ttl_config(&self) -> &CacheTTLConfig {
         &self.ttl_config
@@ -52,17 +42,26 @@ impl AppState {
         format!("{}:{}", self.settings.server.host, self.settings.server.port)
     }
 
+    /// Check if cache is available
+    #[allow(dead_code)]
+    pub fn cache_available(&self) -> bool {
+        self.cache.is_some()
+    }
+
+    /// Get Redis cache if available
+    #[allow(dead_code)]
+    pub fn get_cache(&self) -> Option<&Arc<RedisCache>> {
+        self.cache.as_ref()
+    }
+
     /// Get database URL from cached settings
+    #[allow(dead_code)]
     pub fn db_url(&self) -> &str {
         &self.settings.database.url
     }
 
-    /// Alias for backward compatibility
-    pub fn db_path(&self) -> &str {
-        &self.settings.database.url
-    }
-
     /// Get upload directory from cached settings
+    #[allow(dead_code)]
     pub fn upload_dir(&self) -> &str {
         &self.settings.upload.directory
     }

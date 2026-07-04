@@ -1,14 +1,29 @@
 use actix_web::{post, web, HttpResponse};
-use argon2::PasswordVerifier;
+use argon2::{Argon2, PasswordVerifier, PasswordHasher, Algorithm, Version, Params};
+use argon2::password_hash::SaltString;
 use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
+use rand_core::OsRng;
+use tracing::{info, warn};
 
 use crate::error::{AppError, AppResult};
 use crate::models::{AuthRequest, AuthResponse, Claims, RegisterRequest, RegisterResponse, RefreshTokenRequest, ResetPasswordResponse};
 use crate::app_state::AppState;
 use crate::cache::session::SessionManager;
+use crate::config::{JWT_SECRET, JWT_EXPIRATION_HOURS, ARGON2_MEMORY_COST, ARGON2_TIME_COST, ARGON2_PARALLELISM};
 use uuid::Uuid;
-use tracing::info;
+
+/// Argon2id インスタンス生成（強化パラメータ）
+fn create_argon2() -> AppResult<Argon2<'static>> {
+    let params = Params::new(
+        *ARGON2_MEMORY_COST,
+        *ARGON2_TIME_COST,
+        *ARGON2_PARALLELISM,
+        Some(32),
+    ).map_err(|_| AppError::Internal)?;
+
+    Ok(Argon2::new(Algorithm::Argon2id, Version::V0x13, params))
+}
 
 #[post("/auth/login")]
 pub async fn login(
@@ -20,7 +35,7 @@ pub async fn login(
 
     if username.is_empty() || password.len() < 8 {
         return Err(AppError::BadRequest(
-            "Invalid username or password".to_string(),
+            "Invalid username or password (min 8 chars)".to_string(),
         ));
     }
 
@@ -37,61 +52,54 @@ pub async fn login(
             let hash = argon2::PasswordHash::new(&password_hash)
                 .map_err(|_| AppError::Internal)?;
 
-            if argon2::Argon2::default()
+            if create_argon2()?
                 .verify_password(password.as_bytes(), &hash)
                 .is_err()
             {
+                warn!("Failed login attempt for user: {}", username);
                 return Err(AppError::Unauthorized);
             }
 
-            // Get JWT settings from cached AppState
-            let token = generate_token(
-                &id,
-                &app_state.settings.auth.jwt_secret,
-                app_state.settings.auth.token_expiry_hours,
-            )?;
-            let expires_in = app_state.settings.auth.token_expiry_hours as i64 * 3600;
+            let token = generate_token(&id, username)?;
+            let expires_in = *JWT_EXPIRATION_HOURS as i64 * 3600;
 
-            // Create session in Redis if cache available
+            // Redisセッション作成
             if let Some(cache) = &app_state.cache {
                 let session_mgr = SessionManager::new(cache.clone());
-                let permissions = vec![
-                    "read".to_string(),
-                    "write".to_string(),
-                ];
+                let permissions = vec!["read".to_string(), "write".to_string()];
 
-                match session_mgr.create_session(&token, &id, username, permissions).await {
-                    Ok(_) => {
-                        info!("Session created for user: {}", username);
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to create session: {:?}", e);
-                        // Continue - JWT is still valid even if session creation fails
-                    }
+                if let Err(e) = session_mgr.create_session(&token, &id, username, permissions).await {
+                    warn!("Failed to create session: {:?}", e);
                 }
             }
+
+            info!("User logged in: {}", username);
 
             Ok(HttpResponse::Ok().json(AuthResponse {
                 token,
                 expires_in,
             }))
         }
-        None => Err(AppError::Unauthorized),
+        None => {
+            warn!("Login attempt for non-existent user: {}", username);
+            Err(AppError::Unauthorized)
+        }
     }
 }
 
-fn generate_token(user_id: &str, jwt_secret: &str, expiry_hours: u32) -> AppResult<String> {
+fn generate_token(user_id: &str, username: &str) -> AppResult<String> {
     let now = Utc::now();
     let claims = Claims {
         sub: user_id.to_string(),
+        username: username.to_string(),
         iat: now.timestamp(),
-        exp: (now + chrono::Duration::hours(expiry_hours as i64)).timestamp(),
+        exp: (now + chrono::Duration::hours(*JWT_EXPIRATION_HOURS as i64)).timestamp(),
     };
 
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(jwt_secret.as_bytes()),
+        &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
     )
     .map_err(|_| AppError::Internal)
 }
@@ -110,12 +118,11 @@ pub async fn register(
         ));
     }
 
-    use argon2::{Argon2, PasswordHasher};
-    use argon2::password_hash::SaltString;
-    use rand_core::OsRng;
+    // パスワード強度検証
+    validate_password_strength(password)?;
 
     let salt = SaltString::generate(OsRng);
-    let argon2 = Argon2::default();
+    let argon2 = create_argon2()?;
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt)
         .map_err(|_| AppError::Internal)?
@@ -125,11 +132,12 @@ pub async fn register(
     let now = Utc::now().to_rfc3339();
 
     sqlx::query(
-        "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3)"
+        "INSERT INTO users (id, username, password_hash, created_at) VALUES ($1, $2, $3, $4)"
     )
     .bind(&user_id)
     .bind(username)
     .bind(&password_hash)
+    .bind(&now)
     .execute(&app_state.db)
     .await
     .map_err(|e| {
@@ -141,6 +149,8 @@ pub async fn register(
         }
     })?;
 
+    info!("User registered: {}", username);
+
     Ok(HttpResponse::Created().json(RegisterResponse {
         id: user_id,
         username: username.clone(),
@@ -148,26 +158,41 @@ pub async fn register(
     }))
 }
 
+/// パスワード強度検証
+fn validate_password_strength(password: &str) -> AppResult<()> {
+    if password.len() < 8 {
+        return Err(AppError::BadRequest("Password must be at least 8 characters".to_string()));
+    }
+    
+    let has_upper = password.chars().any(|c| c.is_uppercase());
+    let has_lower = password.chars().any(|c| c.is_lowercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    let has_special = password.chars().any(|c| !c.is_alphanumeric());
+    
+    if !has_upper || !has_lower || !has_digit || !has_special {
+        return Err(AppError::BadRequest(
+            "Password must contain uppercase, lowercase, digit, and special character".to_string()
+        ));
+    }
+    
+    Ok(())
+}
+
 #[post("/auth/refresh")]
 pub async fn refresh_token(
-    app_state: web::Data<AppState>,
+    _app_state: web::Data<AppState>,
     req: web::Json<RefreshTokenRequest>,
 ) -> AppResult<HttpResponse> {
-    // Get JWT settings from cached AppState (no file I/O)
     let claims = jsonwebtoken::decode::<Claims>(
         &req.token,
-        &jsonwebtoken::DecodingKey::from_secret(app_state.settings.auth.jwt_secret.as_bytes()),
+        &jsonwebtoken::DecodingKey::from_secret(JWT_SECRET.as_bytes()),
         &jsonwebtoken::Validation::new(jsonwebtoken::Algorithm::HS256),
     )
     .map_err(|_| AppError::Unauthorized)?
     .claims;
 
-    let token = generate_token(
-        &claims.sub,
-        &app_state.settings.auth.jwt_secret,
-        app_state.settings.auth.token_expiry_hours,
-    )?;
-    let expires_in = app_state.settings.auth.token_expiry_hours as i64 * 3600;
+    let token = generate_token(&claims.sub, &claims.username)?;
+    let expires_in = *JWT_EXPIRATION_HOURS as i64 * 3600;
 
     Ok(HttpResponse::Ok().json(AuthResponse {
         token,
@@ -190,30 +215,17 @@ pub async fn logout(
     app_state: web::Data<AppState>,
     req: actix_web::HttpRequest,
 ) -> AppResult<HttpResponse> {
-    // Extract token from Authorization header
-    let token = if let Some(auth_header) = req.headers().get("Authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
-            auth_str.strip_prefix("Bearer ").unwrap_or("").to_string()
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    };
+    let token = req.headers()
+        .get("Authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|auth| auth.strip_prefix("Bearer "))
+        .unwrap_or("")
+        .to_string();
 
-    // Invalidate session in Redis
     if let Some(cache) = &app_state.cache {
         let session_mgr = SessionManager::new(cache.clone());
-
         if !token.is_empty() {
-            match session_mgr.invalidate_session(&token).await {
-                Ok(_) => {
-                    info!("Session invalidated");
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to invalidate session during logout: {:?}", e);
-                }
-            }
+            let _ = session_mgr.invalidate_session(&token).await;
         }
     }
 

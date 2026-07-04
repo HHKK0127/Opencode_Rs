@@ -363,6 +363,49 @@ RUST_LOG=info
 
 ---
 
+### OpenCode Desktop (opencode-core)
+
+Alongside the PoC, the workspace contains **`opencode-core`** — a Rust reimplementation of the OpenCode Desktop backend server protocol (Phase 1).
+
+| Feature | Status |
+|---------|--------|
+| OpenCode v2 API protocol | ✅ Implemented |
+| SSE streaming (Server-Sent Events) | ✅ Implemented |
+| Session CRUD (create/read/delete/list) | ✅ Implemented |
+| Mock LLM prompt processing | ✅ Implemented |
+| Question/Permission endpoints | ✅ Implemented |
+| Event bus for real-time updates | ✅ Implemented |
+| Basic Auth (auto-generated password) | ✅ Implemented |
+| frontend static file serving | ✅ Implemented |
+| File/symbol search | 🚧 Partial |
+| Provider management | 🚧 Stub |
+| Tool execution engine | ❌ Not started |
+
+**Endpoints (opencode-core server):**
+```
+POST /api/session                  — Create session (V2)
+GET  /api/session                  — List sessions (V2)
+GET  /api/session/{id}             — Get session (V2)
+DELETE /api/session/{id}           — Delete session (V2)
+GET  /api/session/{id}/message     — Get session messages
+POST /api/session/{id}/prompt      — Send prompt + SSE response
+GET  /api/event                    — SSE event subscription
+GET  /api/session/{id}/question    — List questions
+POST /api/session/{id}/question/{rid}/reply  — Reply question
+POST /api/session/{id}/question/{rid}/reject — Reject question
+GET  /api/session/{id}/permission  — List permissions
+POST /api/session/{id}/permission/{rid}/reply — Reply permission
+```
+
+**Start opencode-core server:**
+```bash
+cd opencode-core
+cargo run
+# Server at http://127.0.0.1:8080
+```
+
+---
+
 ### Repository
 
 - **GitHub**: https://github.com/HHKK0127/Opencode_Rs

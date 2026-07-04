@@ -1,12 +1,7 @@
 use actix_web::{HttpResponse, web};
-use chrono::Utc;
-use futures::stream::Stream;
-use parking_lot::RwLock;
-use serde::Serialize;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 use tokio::sync::broadcast;
+use serde::Serialize;
+use std::sync::Arc;
 
 pub type EventBus = Arc<broadcast::Sender<V2Event>>;
 
@@ -31,47 +26,29 @@ pub fn emit_event(bus: &EventBus, event_type: &str, data: serde_json::Value) {
     let _ = bus.send(event);
 }
 
-pub struct SseStream {
-    rx: broadcast::Receiver<V2Event>,
-}
-
-impl Stream for SseStream {
-    type Item = Result<actix_web::web::Bytes, actix_web::Error>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        loop {
-            match self.rx.try_recv() {
-                Ok(event) => {
-                    let json = serde_json::to_string(&event).unwrap_or_default();
-                    let sse = format!("data: {json}\n\n");
-                    return Poll::Ready(Some(Ok(web::Bytes::from(sse))));
-                }
-                Err(broadcast::error::TryRecvError::Empty) => {
-                    self.rx = self.rx.resubscribe();
-                    let waker = cx.waker().clone();
-                    let mut rx = self.rx.resubscribe();
-                    tokio::spawn(async move {
-                        let _ = rx.recv().await;
-                        waker.wake();
-                    });
-                    return Poll::Pending;
-                }
-                Err(broadcast::error::TryRecvError::Closed) => {
-                    return Poll::Ready(None);
-                }
-                Err(broadcast::error::TryRecvError::Lagged(_)) => {
-                    continue;
-                }
-            }
-        }
-    }
-}
-
 pub async fn subscribe_events(
     bus: web::Data<EventBus>,
 ) -> HttpResponse {
     let rx = bus.subscribe();
-    let stream = SseStream { rx };
+    let stream = futures::stream::unfold(rx, |mut rx| async {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    let json = serde_json::to_string(&event).unwrap_or_default();
+                    let sse = format!("data: {json}\n\n");
+                    return Some((Ok::<_, actix_web::Error>(web::Bytes::from(sse)), rx));
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    return None;
+                }
+                Err(broadcast::error::RecvError::Lagged(n)) => {
+                    log::warn!("SSE stream lagged by {} messages", n);
+                    continue;
+                }
+            }
+        }
+    });
+
     HttpResponse::Ok()
         .insert_header(("content-type", "text/event-stream"))
         .insert_header(("cache-control", "no-cache"))

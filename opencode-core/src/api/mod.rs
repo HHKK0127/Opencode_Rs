@@ -1,4 +1,4 @@
-mod health;
+pub mod health;
 mod config;
 pub mod session;
 mod provider;
@@ -10,3 +10,4 @@ pub mod prompt;
 pub mod question;
 pub mod permission;
 pub mod router;
+pub mod browser;

@@ -26,7 +26,7 @@ mod integration_tests {
         assert!(!upload_dir.is_empty());
 
         let _storage = &app_state.storage;
-        assert!(!app_state.db_path().is_empty());
+        assert!(!app_state.db_url().is_empty());
     }
 
     #[tokio::test]
@@ -53,8 +53,8 @@ mod integration_tests {
     async fn test_multipart_upload_reliability() {
         let app_state = create_test_app_state().await;
 
-        let db_path = app_state.db_path();
-        assert!(!db_path.is_empty());
+        let db_url = app_state.db_url();
+        assert!(!db_url.is_empty());
     }
 
     #[tokio::test]
@@ -88,9 +88,9 @@ mod integration_tests {
     async fn test_database_connection_pool_stress() {
         let app_state = create_test_app_state().await;
 
-        let db_path = app_state.db_path();
-        assert!(!db_path.contains(".."));
-        assert!(!db_path.is_empty());
+        let db_url = app_state.db_url();
+        assert!(!db_url.contains(".."));
+        assert!(!db_url.is_empty());
     }
 
     #[tokio::test]
@@ -110,7 +110,7 @@ mod integration_tests {
         let _state1 = app_state.clone();
         let _state2 = app_state.clone();
 
-        assert!(!app_state.db_path().is_empty());
+        assert!(!app_state.db_url().is_empty());
     }
 
     #[tokio::test]

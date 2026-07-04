@@ -10,12 +10,6 @@ pub struct FindFileParams {
     pub limit: Option<i32>,
 }
 
-#[derive(Deserialize)]
-pub struct FindSymbolParams {
-    pub query: Option<String>,
-    pub path: Option<String>,
-}
-
 pub async fn find_file(params: Query<FindFileParams>) -> HttpResponse {
     let dir = params.path.as_deref().unwrap_or(".");
     let pattern = params.pattern.as_deref().unwrap_or("*");

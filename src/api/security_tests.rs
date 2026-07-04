@@ -67,9 +67,9 @@ mod security_tests {
     #[tokio::test]
     async fn test_database_connection_pool() {
         let app_state = create_test_app_state().await;
-        let db_path = app_state.db_path();
-        assert!(!db_path.is_empty());
-        assert!(db_path.contains("postgres") || db_path.contains("test"));
+        let db_url = app_state.db_url();
+        assert!(!db_url.is_empty());
+        assert!(db_url.contains("postgres") || db_url.contains("test"));
     }
 
     #[tokio::test]

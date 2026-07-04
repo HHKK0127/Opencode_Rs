@@ -72,7 +72,18 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let path = req.path().to_string();
 
-        if path == "/global/health" || path == "/api/health" {
+        let is_api = path.starts_with("/global/")
+            || path.starts_with("/api/")
+            || path.starts_with("/session/")
+            || path.starts_with("/config/")
+            || path.starts_with("/provider/")
+            || path.starts_with("/experimental/")
+            || path.starts_with("/find/")
+            || path.starts_with("/v2/");
+
+        let is_health = path == "/global/health" || path == "/api/health";
+
+        if !is_api || is_health {
             let fut = self.service.call(req);
             return Box::pin(async move {
                 let res = fut.await?;

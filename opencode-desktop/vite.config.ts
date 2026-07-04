@@ -8,8 +8,9 @@ export default defineConfig({
   clearScreen: false,
   // Tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 1420,
-    strictPort: true,
+    port: 5173,
+    strictPort: false,
+    host: '0.0.0.0',
   },
   // to access the Tauri API with `app` package
   envPrefix: ['VITE_', 'TAURI_'],

@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde::Deserialize;
 
 use crate::api::events::{self, EventBus};
-use crate::api::session::{SessionData, SessionStore};
+use crate::api::session::SessionStore;
 use crate::models::PromptRequest;
 
 #[derive(Deserialize)]
@@ -12,7 +12,8 @@ pub struct SessionIdPath {
 }
 
 #[derive(Deserialize)]
-struct PromptAsyncQuery {
+#[allow(dead_code)]
+pub struct PromptAsyncQuery {
     directory: Option<String>,
     workspace: Option<String>,
 }
@@ -59,9 +60,10 @@ pub async fn prompt_v2(
     let store_clone = store.clone();
     let bus_clone = bus.clone();
     let session_id_clone = session_id.clone();
+    let model_val = model.map(|m| serde_json::to_value(m).unwrap_or_default());
 
     tokio::spawn(async move {
-        process_prompt(session_id_clone, &store_clone, &bus_clone, &parts, &agent, model).await;
+        process_prompt(session_id_clone, &store_clone, &bus_clone, &parts, &agent, model_val).await;
     });
 
     HttpResponse::NoContent().finish()
@@ -70,7 +72,7 @@ pub async fn prompt_v2(
 pub async fn prompt_async_v1(
     path: web::Path<SessionIdPath>,
     body: web::Json<serde_json::Value>,
-    query: web::Query<PromptAsyncQuery>,
+    _query: web::Query<PromptAsyncQuery>,
     store: web::Data<SessionStore>,
     bus: web::Data<EventBus>,
 ) -> HttpResponse {

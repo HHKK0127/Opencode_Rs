@@ -1,0 +1,115 @@
+[data-component="session-turn"] {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-slot="session-turn-content"] {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 100%;
+  min-height: 100%;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+/* User message */
+[data-component="user-message"] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: stretch;
+  width: 100%;
+  gap: 0;
+}
+
+[data-slot="user-message-bubble"] {
+  background: var(--color-message-user-bg);
+  border: 0.5px solid var(--color-border-base);
+  border-radius: 6px;
+  padding: 8px 12px;
+  max-width: min(82%, 64ch);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 1.4;
+  word-wrap: break-word;
+  transition: background 150ms, border-color 150ms;
+}
+
+[data-slot="user-message-bubble"]:hover {
+  background: var(--color-element-hover);
+  border-color: var(--color-border-strong);
+}
+
+/* Assistant message */
+[data-component="assistant-message"] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: min(82%, 64ch);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+[data-slot="message-content"] {
+  word-wrap: break-word;
+}
+
+[data-slot="message-content"] p {
+  margin-bottom: 8px;
+}
+
+[data-slot="message-content"] p:last-child {
+  margin-bottom: 0;
+}
+
+/* Inline code */
+.inline-code {
+  background: var(--color-surface-secondary);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-accent);
+}
+
+/* Code block */
+[data-component="code-block"] {
+  background: var(--color-surface-secondary);
+  border: 0.5px solid var(--color-border-divider);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+  max-width: 100%;
+}
+
+[data-slot="code-header"] {
+  background: var(--color-surface-tertiary);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  border-bottom: 0.5px solid var(--color-border-divider);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+[data-component="code-block"] pre {
+  margin: 0 !important;
+  padding: 12px !important;
+  background: transparent !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}

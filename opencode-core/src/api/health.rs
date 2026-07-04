@@ -1,24 +1,70 @@
-use actix_web::HttpResponse;
+use actix_web::{web, HttpResponse};
 use serde::Serialize;
+use std::time::Instant;
 
-#[derive(Serialize)]
-struct GlobalHealth {
-    healthy: bool,
+use super::session::SessionStore;
+use super::events::EventBus;
+
+pub struct HealthState {
+    pub start_time: Instant,
+    pub session_store: SessionStore,
+    pub event_bus: EventBus,
 }
 
 #[derive(Serialize)]
-struct ApiHealth {
+struct HealthResponse {
     healthy: bool,
     version: String,
+    uptime_secs: u64,
+    components: ComponentsStatus,
 }
 
-pub async fn global_health() -> HttpResponse {
-    HttpResponse::Ok().json(GlobalHealth { healthy: true })
+#[derive(Serialize)]
+struct ComponentsStatus {
+    session_store: bool,
+    event_bus: bool,
 }
 
-pub async fn api_health() -> HttpResponse {
-    HttpResponse::Ok().json(ApiHealth {
-        healthy: true,
+pub async fn global_health(state: web::Data<HealthState>) -> HttpResponse {
+    let session_ok = state.session_store.try_read().is_some();
+    let event_ok = true;
+    
+    let healthy = session_ok;
+    let mut status = if healthy {
+        HttpResponse::Ok()
+    } else {
+        HttpResponse::ServiceUnavailable()
+    };
+    
+    status.json(HealthResponse {
+        healthy,
         version: env!("CARGO_PKG_VERSION").to_string(),
+        uptime_secs: state.start_time.elapsed().as_secs(),
+        components: ComponentsStatus {
+            session_store: session_ok,
+            event_bus: event_ok,
+        },
+    })
+}
+
+pub async fn api_health(state: web::Data<HealthState>) -> HttpResponse {
+    let session_ok = state.session_store.try_read().is_some();
+    let event_ok = true;
+    
+    let healthy = session_ok;
+    let mut status = if healthy {
+        HttpResponse::Ok()
+    } else {
+        HttpResponse::ServiceUnavailable()
+    };
+    
+    status.json(HealthResponse {
+        healthy,
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        uptime_secs: state.start_time.elapsed().as_secs(),
+        components: ComponentsStatus {
+            session_store: session_ok,
+            event_bus: event_ok,
+        },
     })
 }

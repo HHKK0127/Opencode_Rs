@@ -2,7 +2,6 @@ use config::{Config, ConfigError, Environment, File};
 use serde::{Deserialize, Serialize};
 use std::env;
 use once_cell::sync::Lazy;
-use tracing::warn;
 
 /// JWT_SECRET - 環境変数から取得（起動時に必須チェック）
 /// 生成方法: export JWT_SECRET=$(openssl rand -base64 32)

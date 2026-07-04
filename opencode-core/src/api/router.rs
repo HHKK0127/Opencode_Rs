@@ -82,9 +82,26 @@ pub fn configure_api(cfg: &mut web::ServiceConfig) {
 
     // Find endpoints (dual routes)
     cfg.route("/find/file", web::get().to(super::find::find_file))
-       .route("/api/find/file", web::get().to(super::find::find_file))
-       .route("/find/symbol", web::get().to(super::find::find_symbol))
-       .route("/api/find/symbol", web::get().to(super::find::find_symbol));
+        .route("/api/find/file", web::get().to(super::find::find_file))
+        .route("/find/symbol", web::get().to(super::find::find_symbol))
+        .route("/api/find/symbol", web::get().to(super::find::find_symbol));
+
+    // Browser control endpoints
+    cfg.service(
+        web::scope("/api/browser")
+            .route("/navigate", web::post().to(super::browser::navigate))
+            .route("/find_tab", web::post().to(super::browser::find_tab))
+            .route("/snapshot", web::get().to(super::browser::snapshot))
+            .route("/click", web::post().to(super::browser::click))
+            .route("/fill", web::post().to(super::browser::fill))
+            .route("/evaluate", web::post().to(super::browser::evaluate))
+            .route("/screenshot", web::post().to(super::browser::screenshot))
+            .route("/save_as_pdf", web::post().to(super::browser::save_as_pdf))
+            .route("/list_tabs", web::get().to(super::browser::list_tabs))
+            .route("/close_tab", web::post().to(super::browser::close_tab))
+            .route("/close_session", web::post().to(super::browser::close_session))
+            .route("/status", web::get().to(super::browser::status)),
+    );
 }
 
 pub fn configure(cfg: &mut web::ServiceConfig, frontend_dir: Option<PathBuf>) {

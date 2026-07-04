@@ -1,0 +1,41 @@
+[data-component="error-toast"] {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: var(--color-status-error);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1000;
+  animation: slideIn 200ms ease-out;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+[data-component="error-toast"] button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: opacity 150ms;
+}
+
+[data-component="error-toast"] button:hover {
+  opacity: 0.8;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

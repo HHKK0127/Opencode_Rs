@@ -1,12 +1,11 @@
 use actix_web::{web, App, HttpServer, HttpResponse};
-use sqlx::postgres::PgPool;
 use std::sync::Arc;
-use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
-use rand_core::OsRng;
+use tracing::{info, error, warn};
 
 mod app_state;
-mod cache;  // Wave 4: Redis caching layer
+mod cache;
 mod config;
+mod database;
 mod error;
 mod models;
 mod auth_middleware;
@@ -23,96 +22,101 @@ mod validation;
 async fn main() -> std::io::Result<()> {
     middleware_logging::init_logging();
 
-    // Initialize Prometheus metrics
+    info!("🚀 OpenCode Server Starting...");
+
+    // メトリクス初期化
     middleware::metrics::init_metrics()
         .expect("Failed to initialize metrics");
 
-    // Initialize Redis cache metrics
     cache::register_redis_metrics(&middleware::metrics::REGISTRY)
         .expect("Failed to register Redis metrics");
 
-    println!("🚀 PoC Verification Server Starting...");
-
+    // 設定読み込み
     let settings = config::Settings::new()
-        .unwrap_or_else(|_| config::Settings::default());
+        .unwrap_or_else(|e| {
+            warn!("Config load failed ({}), using defaults", e);
+            config::Settings::default()
+        });
 
-    println!("📋 Environment: {}", std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string()));
-    println!("🔧 Server: {}:{}", settings.server.host, settings.server.port);
+    let env = std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
+    info!("📋 Environment: {}", env);
+    info!("🔧 Server: {}:{}", settings.server.host, settings.server.port);
 
-    // Ensure uploads directory exists
+    // アップロードディレクトリ作成
     let _ = std::fs::create_dir_all(&settings.upload.directory);
 
-    // Resolve DATABASE_URL: env var takes precedence over config file
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| settings.database.url.clone());
+    // データベース接続プール作成
+    let db_config = database::DatabaseConfig::from_settings(&settings);
+    let pool = match database::create_pool(&db_config).await {
+        Ok(pool) => {
+            info!("✅ Database pool created");
+            pool
+        }
+        Err(e) => {
+            error!("❌ Failed to create database pool: {}", e);
+            std::process::exit(1);
+        }
+    };
 
-    // Connect to PostgreSQL
-    let pool = PgPool::connect(&database_url)
-        .await
-        .expect("Failed to connect to PostgreSQL. Set DATABASE_URL env var.");
+    // スキーマ初期化
+    if let Err(e) = initialize_db(&pool).await {
+        error!("Failed to initialize DB schema: {}", e);
+        std::process::exit(1);
+    }
+    info!("✅ Database schema ready");
 
-    println!("✅ Database connected: {}", database_url.split('@').last().unwrap_or("(hidden)"));
-
-    // Initialize schema
-    initialize_db(&pool).await.expect("Failed to initialize DB schema");
-    println!("✅ Database schema ready");
-
-    // Initialize Redis cache (Wave 4)
+    // Redisキャッシュ初期化
     let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://:test_password@127.0.0.1:6379".to_string());
-    let redis_cache = cache::RedisCache::new(cache::RedisCacheConfig {
+        .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    
+    let redis_cache = match cache::RedisCache::new(cache::RedisCacheConfig {
         url: redis_url.clone(),
         max_connections: 50,
         connection_timeout_ms: 5000,
     })
     .await
-    .map_err(|e| {
-        eprintln!("⚠️  Redis connection failed: {}. Continuing without cache...", e);
-        e
-    });
+    {
+        Ok(cache) => {
+            info!("✅ Redis cache connected");
+            Some(Arc::new(cache))
+        }
+        Err(e) if *config::REDIS_REQUIRED => {
+            error!("❌ Redis is required but connection failed: {}", e);
+            std::process::exit(1);
+        }
+        Err(e) => {
+            warn!("⚠️  Redis unavailable, continuing without cache: {}", e);
+            None
+        }
+    };
 
-    if let Ok(ref cache) = redis_cache {
+    if let Some(ref cache) = redis_cache {
         match cache.health_check().await {
-            Ok(_) => println!("✅ Redis cache connected: {}", redis_url),
-            Err(e) => eprintln!("⚠️  Redis health check failed: {}", e),
+            Ok(_) => info!("Redis health check passed"),
+            Err(e) => warn!("Redis health check failed: {}", e),
         }
     }
 
-    // Apply database optimizations
-    db::optimize_database(&pool)
-        .await
-        .expect("Failed to apply database optimizations");
+    // DB最適化
+    db::optimize_database(&pool).await.ok();
+    db::analyze_tables(&pool).await.ok();
 
-    db::analyze_tables(&pool)
-        .await
-        .expect("Failed to analyze database tables");
-
-    // Display database stats
-    match db::get_database_stats(&pool).await {
-        Ok(stats) => {
-            println!("📊 Database: {:.2} MB (journal: {})",
-                stats.total_size_bytes as f64 / (1024.0 * 1024.0),
-                stats.journal_mode);
-        }
-        Err(e) => eprintln!("⚠️  Failed to get database stats: {}", e),
-    }
-
-    println!("🔄 Starting server on http://{}:{}", settings.server.host, settings.server.port);
-
-    // Initialize StorageBackend (Local for dev, S3 for prod)
+    // ストレージバックエンド初期化
     let storage_backend: Arc<dyn storage::StorageBackend> = Arc::new(
         storage::local_backend::LocalStorageBackend::new(&settings.upload.directory)
     );
-    println!("✅ StorageBackend initialized (Local)");
+    info!("✅ StorageBackend initialized");
 
-    // Create AppState
+    // AppState作成
     let app_state = app_state::AppState::new(
         settings.clone(),
         pool,
         storage_backend,
-        redis_cache.ok().map(Arc::new),
+        redis_cache,
     );
     let bind_addr = app_state.server_addr();
+
+    info!("🔄 Starting server on http://{}", bind_addr);
 
     HttpServer::new(move || {
         App::new()
@@ -134,9 +138,13 @@ async fn main() -> std::io::Result<()> {
 }
 
 async fn health_check_handler() -> HttpResponse {
-    use serde::Serialize;
-    #[derive(Serialize)]
-    struct HealthStatus { status: String, version: String, timestamp: String }
+    #[derive(serde::Serialize)]
+    struct HealthStatus {
+        status: String,
+        version: String,
+        timestamp: String,
+    }
+    
     HttpResponse::Ok().json(HealthStatus {
         status: "healthy".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -145,14 +153,20 @@ async fn health_check_handler() -> HttpResponse {
 }
 
 async fn db_health_check_handler(app_state: web::Data<app_state::AppState>) -> HttpResponse {
-    match sqlx::query("SELECT 1").fetch_one(&app_state.db).await {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
-            "status": "database_connected",
-            "connected": true,
-            "timestamp": chrono::Utc::now().to_rfc3339()
-        })),
+    let start = std::time::Instant::now();
+    
+    match database::health_check(&app_state.db).await {
+        Ok(_) => {
+            let elapsed = start.elapsed().as_millis() as u64;
+            HttpResponse::Ok().json(serde_json::json!({
+                "status": "database_connected",
+                "connected": true,
+                "latency_ms": elapsed,
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            }))
+        }
         Err(e) => {
-            eprintln!("Database health check failed: {}", e);
+            error!("Database health check failed: {}", e);
             HttpResponse::ServiceUnavailable().json(serde_json::json!({
                 "status": "database_unavailable",
                 "error": e.to_string(),
@@ -162,7 +176,7 @@ async fn db_health_check_handler(app_state: web::Data<app_state::AppState>) -> H
     }
 }
 
-async fn initialize_db(pool: &PgPool) -> Result<(), sqlx::Error> {
+async fn initialize_db(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
     // Users table
     sqlx::query(
         r#"
@@ -172,12 +186,12 @@ async fn initialize_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        "#,
+        "#
     )
     .execute(pool)
     .await?;
 
-    // Files table (full schema — avoids ALTER TABLE drift)
+    // Files table
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS files (
@@ -200,7 +214,7 @@ async fn initialize_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             storage_type TEXT DEFAULT 'local',
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        "#,
+        "#
     )
     .execute(pool)
     .await?;
@@ -219,21 +233,56 @@ async fn initialize_db(pool: &PgPool) -> Result<(), sqlx::Error> {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        "#,
+        "#
     )
     .execute(pool)
     .await?;
 
-    // Create test user (idempotent)
+    // 開発環境のみテストユーザー作成
+    if std::env::var("ENVIRONMENT").unwrap_or_default() == "development" {
+        create_test_user(pool).await.ok();
+    }
+
+    Ok(())
+}
+
+async fn create_test_user(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
+    use argon2::{Argon2, PasswordHasher};
+    use argon2::password_hash::SaltString;
+    use rand_core::OsRng;
+
+    let test_password = std::env::var("TEST_USER_PASSWORD")
+        .unwrap_or_else(|_| {
+            let random_pass: String = (0..32)
+                .map(|_| {
+                    let b = rand::random::<u8>();
+                    let idx = b % 62;
+                    if idx < 26 {
+                        (b'A' + idx) as char
+                    } else if idx < 52 {
+                        (b'a' + (idx - 26)) as char
+                    } else {
+                        (b'0' + (idx - 52)) as char
+                    }
+                })
+                .collect();
+            warn!("Generated random test password (set TEST_USER_PASSWORD to override)");
+            random_pass
+        });
+
     let salt = SaltString::generate(OsRng);
     let argon2 = Argon2::default();
     let password_hash = argon2
-        .hash_password(b"testpassword", &salt)
+        .hash_password(test_password.as_bytes(), &salt)
         .map_err(|_| sqlx::Error::Configuration("Failed to hash password".into()))?
         .to_string();
 
     sqlx::query(
-        "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
+        r#"
+        INSERT INTO users (id, username, password_hash) 
+        VALUES ($1, $2, $3) 
+        ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash
+        "#
     )
     .bind("test-user-1")
     .bind("testuser")
@@ -241,6 +290,7 @@ async fn initialize_db(pool: &PgPool) -> Result<(), sqlx::Error> {
     .execute(pool)
     .await?;
 
+    info!("Test user ready: testuser");
     Ok(())
 }
 

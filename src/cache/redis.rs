@@ -200,6 +200,54 @@ impl RedisCache {
         Ok(exists)
     }
 
+    /// SCANコマンドでパターンにマッチするキーを検索
+    pub async fn scan_keys(&self, pattern: &str) -> CacheResult<Vec<String>> {
+        let mut conn = self.manager.as_ref().clone();
+        let mut keys = Vec::new();
+        let mut cursor = "0".to_string();
+
+        loop {
+            let result: (String, Vec<String>) = redis::cmd("SCAN")
+                .arg(&cursor)
+                .arg("MATCH")
+                .arg(pattern)
+                .arg("COUNT")
+                .arg(100)
+                .query_async(&mut conn)
+                .await
+                .map_err(|e| CacheError::RedisError(e))?;
+
+            let (next_cursor, found_keys) = result;
+            keys.extend(found_keys);
+
+            if next_cursor == "0" {
+                break;
+            }
+            cursor = next_cursor;
+        }
+
+        info!("SCAN found {} keys for pattern: {}", keys.len(), pattern);
+        Ok(keys)
+    }
+
+    /// パターンにマッチするキーを一括削除
+    pub async fn delete_by_pattern(&self, pattern: &str) -> CacheResult<usize> {
+        let keys = self.scan_keys(pattern).await?;
+        if keys.is_empty() {
+            return Ok(0);
+        }
+
+        let mut conn = self.manager.as_ref().clone();
+        let deleted: usize = redis::cmd("DEL")
+            .arg(&keys)
+            .query_async(&mut conn)
+            .await
+            .map_err(|e| CacheError::RedisError(e))?;
+
+        info!("Deleted {} keys matching pattern: {}", deleted, pattern);
+        Ok(deleted)
+    }
+
     /// Get Redis INFO for monitoring
     pub async fn get_info(&self) -> CacheResult<String> {
         let mut conn = self.manager.as_ref().clone();

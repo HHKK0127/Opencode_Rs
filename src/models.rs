@@ -15,6 +15,7 @@ pub struct AuthResponse {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
     pub sub: String,
+    pub username: String,
     pub exp: i64,
     pub iat: i64,
 }

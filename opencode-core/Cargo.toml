@@ -26,4 +26,12 @@ futures = "0.3"
 bytes = "1.5"
 async-trait = "0.1"
 parking_lot = "0.12"
+chromiumoxide = "0.9"
+validator = { version = "0.18", features = ["derive"] }
+which = "7"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
 

@@ -2,12 +2,13 @@ use actix_web::{post, get, web, HttpResponse};
 use actix_multipart::Multipart;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::Utc;
-use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use sha2::{Sha256, Digest};
 use futures::TryStreamExt;
+use tempfile::NamedTempFile;
+use tracing::{info, warn, error};
+use tokio::io::AsyncWriteExt;
 
 use crate::error::{AppError, AppResult};
 use crate::app_state::AppState;
@@ -55,6 +56,17 @@ pub async fn init_chunked_upload(
     app_state: web::Data<AppState>,
     req: web::Json<InitChunkedUploadRequest>,
 ) -> AppResult<HttpResponse> {
+    // 入力検証
+    if req.filename.is_empty() {
+        return Err(AppError::BadRequest("Filename cannot be empty".to_string()));
+    }
+    if req.total_size <= 0 {
+        return Err(AppError::BadRequest("Invalid file size".to_string()));
+    }
+    if req.chunk_size == 0 || req.chunk_size > 100 * 1024 * 1024 {
+        return Err(AppError::BadRequest("Invalid chunk size (max 100MB)".to_string()));
+    }
+
     let max_file_size = app_state.settings.upload.max_file_size_mb * 1024 * 1024;
 
     if req.total_size > max_file_size as i64 {
@@ -82,6 +94,8 @@ pub async fn init_chunked_upload(
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;
 
+    info!("Chunked upload initialized: session={}, file={}", session_id, file_id);
+
     Ok(HttpResponse::Ok().json(InitChunkedUploadResponse {
         session_id,
         chunk_size: req.chunk_size,
@@ -97,8 +111,9 @@ pub async fn upload_chunk(
     let session_id = path.into_inner();
     let upload_dir = &app_state.settings.upload.directory;
 
+    // セッション検証
     let session = sqlx::query_as::<_, (String, String, i64, i64, i64)>(
-        "SELECT id, file_id, total_size, uploaded_size, chunk_size FROM upload_sessions WHERE id = $1"
+        "SELECT id, file_id, total_size, uploaded_size, chunk_size FROM upload_sessions WHERE id = $1 AND status = 'uploading'"
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
@@ -106,11 +121,16 @@ pub async fn upload_chunk(
     .map_err(|e| AppError::Database(e.to_string()))?
     .ok_or_else(|| AppError::NotFound)?;
 
-    let (session_id_db, file_id, total_size, uploaded_size, chunk_size) = session;
+    let (_, file_id, total_size, uploaded_size, chunk_size) = session;
 
-    let temp_dir = PathBuf::from(upload_dir).join("temp");
-    fs::create_dir_all(&temp_dir).map_err(|_| AppError::Internal)?;
+    // 一時ディレクトリ作成
+    let temp_dir = PathBuf::from(upload_dir).join("temp").join(&session_id);
+    tokio::fs::create_dir_all(&temp_dir).await.map_err(|e| {
+        error!("Failed to create temp directory: {}", e);
+        AppError::Internal
+    })?;
 
+    // チャンクデータ読み込み
     let mut chunk_index = 0u32;
     let mut chunk_data = Vec::new();
 
@@ -130,40 +150,78 @@ pub async fn upload_chunk(
         }
     }
 
-    let chunk_path = temp_dir.join(format!("{}-chunk-{}", session_id, chunk_index));
-    let mut chunk_file = fs::File::create(&chunk_path)
-        .map_err(|_| AppError::Internal)?;
-    std::io::Write::write_all(&mut chunk_file, &chunk_data)
-        .map_err(|_| AppError::Internal)?;
-
-    let new_uploaded_size = uploaded_size + chunk_data.len() as i64;
-
-    if new_uploaded_size > total_size {
-        let _ = fs::remove_file(&chunk_path);
-        return Err(AppError::BadRequest("Chunk exceeds total file size".to_string()));
+    // サイズ検証
+    if chunk_data.len() > chunk_size as usize * 2 {
+        return Err(AppError::BadRequest("Chunk size exceeds limit".to_string()));
     }
 
-    sqlx::query(
+    let new_uploaded_size = uploaded_size + chunk_data.len() as i64;
+    if new_uploaded_size > total_size {
+        return Err(AppError::BadRequest("Upload exceeds total size".to_string()));
+    }
+
+    // === RAIIパターンによる一時ファイル管理 ===
+    let chunk_path = temp_dir.join(format!("chunk-{}", chunk_index));
+    
+    // NamedTempFileを使用（Drop時に自動削除）
+    let temp_file = match NamedTempFile::new_in(&temp_dir) {
+        Ok(f) => f,
+        Err(e) => {
+            error!("Failed to create temp file: {}", e);
+            return Err(AppError::Internal);
+        }
+    };
+
+    // データ書き込み
+    {
+        let mut file = temp_file.as_file();
+        if let Err(e) = file.write_all(&chunk_data) {
+            error!("Failed to write chunk: {}", e);
+            return Err(AppError::Internal);
+        }
+        if let Err(e) = file.sync_all() {
+            error!("Failed to sync chunk file: {}", e);
+            return Err(AppError::Internal);
+        }
+    }
+
+    // DB更新（トランザクション）
+    match sqlx::query(
         "UPDATE upload_sessions SET uploaded_size = $1 WHERE id = $2"
     )
     .bind(new_uploaded_size)
     .bind(&session_id)
     .execute(&app_state.db)
     .await
-    .map_err(|e| AppError::Database(e.to_string()))?;
+    {
+        Ok(_) => {
+            // 成功：一時ファイルを永続化
+            if let Err(e) = temp_file.persist(&chunk_path) {
+                error!("Failed to persist temp file: {}", e);
+                return Err(AppError::Internal);
+            }
+            
+            info!("Chunk {} uploaded for session {}", chunk_index, session_id);
+            
+            let status = if new_uploaded_size == total_size {
+                "completed"
+            } else {
+                "uploading"
+            };
 
-    let status = if new_uploaded_size == total_size {
-        "completed"
-    } else {
-        "uploading"
-    };
-
-    Ok(HttpResponse::Ok().json(UploadChunkResponse {
-        session_id,
-        chunk_index,
-        uploaded_size: new_uploaded_size,
-        status: status.to_string(),
-    }))
+            Ok(HttpResponse::Ok().json(UploadChunkResponse {
+                session_id,
+                chunk_index,
+                uploaded_size: new_uploaded_size,
+                status: status.to_string(),
+            }))
+        }
+        Err(e) => {
+            // 失敗：temp_fileがDropで自動削除される
+            error!("DB update failed, temp file will be cleaned up: {}", e);
+            Err(AppError::Database(e.to_string()))
+        }
+    }
 }
 
 #[post("/files/upload/complete/{session_id}")]
@@ -175,7 +233,7 @@ pub async fn complete_chunked_upload(
     let upload_dir = &app_state.settings.upload.directory;
 
     let session = sqlx::query_as::<_, (String, String, i64, i64)>(
-        "SELECT id, file_id, total_size, uploaded_size FROM upload_sessions WHERE id = $1"
+        "SELECT id, file_id, total_size, uploaded_size FROM upload_sessions WHERE id = $1 AND status = 'uploading'"
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
@@ -191,33 +249,48 @@ pub async fn complete_chunked_upload(
         ));
     }
 
-    let temp_dir = PathBuf::from(upload_dir).join("temp");
+    let temp_dir = PathBuf::from(upload_dir).join("temp").join(&session_id);
     let today = chrono::Local::now().format("%Y/%m/%d").to_string();
     let final_dir = PathBuf::from(upload_dir).join(&today);
-    fs::create_dir_all(&final_dir).map_err(|_| AppError::Internal)?;
+    
+    tokio::fs::create_dir_all(&final_dir).await.map_err(|e| {
+        error!("Failed to create final directory: {}", e);
+        AppError::Internal
+    })?;
 
     let final_filename = format!("{}-chunked", file_id);
     let final_path = final_dir.join(&final_filename);
-    let mut final_file = fs::File::create(&final_path)
-        .map_err(|_| AppError::Internal)?;
+    let mut final_file = tokio::fs::File::create(&final_path).await.map_err(|e| {
+        error!("Failed to create final file: {}", e);
+        AppError::Internal
+    })?;
     let mut hasher = Sha256::new();
 
     let mut chunk_index = 0u32;
     loop {
-        let chunk_path = temp_dir.join(format!("{}-chunk-{}", session_id, chunk_index));
-        if !chunk_path.exists() {
-            break;
+        let chunk_path = temp_dir.join(format!("chunk-{}", chunk_index));
+        
+        match tokio::fs::read(&chunk_path).await {
+            Ok(chunk_data) => {
+                hasher.update(&chunk_data);
+                if let Err(e) = final_file.write_all(&chunk_data).await {
+                    error!("Failed to write to final file: {}", e);
+                    return Err(AppError::Internal);
+                }
+
+                // 一時ファイル削除
+                if let Err(e) = tokio::fs::remove_file(&chunk_path).await {
+                    warn!("Failed to remove chunk file: {}", e);
+                }
+                chunk_index += 1;
+            }
+            Err(_) => break, // チャンク終了
         }
+    }
 
-        let chunk_data = std::fs::read(&chunk_path)
-            .map_err(|_| AppError::Internal)?;
-
-        hasher.update(&chunk_data);
-        std::io::Write::write_all(&mut final_file, &chunk_data)
-            .map_err(|_| AppError::Internal)?;
-
-        let _ = fs::remove_file(&chunk_path);
-        chunk_index += 1;
+    // 一時ディレクトリ削除
+    if let Err(e) = tokio::fs::remove_dir_all(&temp_dir).await {
+        warn!("Failed to remove temp directory: {}", e);
     }
 
     let checksum = format!("{:x}", hasher.finalize());
@@ -249,6 +322,8 @@ pub async fn complete_chunked_upload(
     .execute(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;
+
+    info!("Upload completed: file_id={}, size={}", file_id, uploaded_size);
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "file_id": file_id,

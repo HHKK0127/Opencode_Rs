@@ -26,7 +26,7 @@ mod tests {
     #[tokio::test]
     async fn test_download_file_endpoint_setup() {
         let app_state = create_test_app_state().await;
-        assert!(!app_state.db_path().is_empty());
+        assert!(!app_state.db_url().is_empty());
     }
 
     #[tokio::test]
@@ -45,8 +45,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_file_metadata_endpoint_setup() {
         let app_state = create_test_app_state().await;
-        let db_path = app_state.db_path();
-        assert!(!db_path.is_empty());
+        let db_url = app_state.db_url();
+        assert!(!db_url.is_empty());
     }
 
     #[tokio::test]
@@ -71,7 +71,7 @@ mod tests {
     #[tokio::test]
     async fn test_upload_progress_endpoint_setup() {
         let app_state = create_test_app_state().await;
-        assert!(!app_state.db_path().is_empty());
+        assert!(!app_state.db_url().is_empty());
     }
 
     #[tokio::test]
@@ -84,7 +84,7 @@ mod tests {
     #[tokio::test]
     async fn test_database_pool_availability() {
         let app_state = create_test_app_state().await;
-        assert!(!app_state.db_path().is_empty());
+        assert!(!app_state.db_url().is_empty());
     }
 
     #[tokio::test]
