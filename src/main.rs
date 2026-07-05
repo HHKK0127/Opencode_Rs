@@ -65,6 +65,11 @@ async fn main() -> std::io::Result<()> {
     }
     info!("✅ Database schema ready");
 
+    // テストユーザー作成
+    if let Err(e) = create_test_user(&pool).await {
+        warn!("Failed to create test user: {}", e);
+    }
+
     // Redisキャッシュ初期化
     let redis_url = std::env::var("REDIS_URL")
         .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());

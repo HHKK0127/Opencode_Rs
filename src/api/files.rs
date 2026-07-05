@@ -13,6 +13,7 @@ use crate::app_state::AppState;
 use crate::storage::{FileMetadata as StorageFileMetadata};
 use crate::validation::FileValidator;
 use crate::cache::metrics::{REDIS_OPERATIONS_TOTAL, REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL};
+use crate::models::{ChunkedUploadInitRequest, ChunkedUploadInitResponse, ChunkedUploadProgressResponse, ChunkedUploadCompleteResponse};
 
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // Wave 2: 100MB
 
@@ -431,11 +432,239 @@ pub async fn file_stats(app_state: web::Data<AppState>) -> AppResult<HttpRespons
     })))
 }
 
+// ============================================================
+// Wave 2B: Chunked Upload API
+// ============================================================
+
+#[post("/files/upload/init")]
+pub async fn chunked_upload_init(
+    app_state: web::Data<AppState>,
+    req: web::Json<ChunkedUploadInitRequest>,
+) -> AppResult<HttpResponse> {
+    let session_id = Uuid::new_v4().to_string();
+    let chunk_size = req.chunk_size.unwrap_or(5 * 1024 * 1024); // Default 5MB
+    let total_chunks = (req.file_size + chunk_size - 1) / chunk_size;
+
+    // Create upload session in database
+    sqlx::query(
+        "INSERT INTO upload_sessions (id, file_id, user_id, total_size, chunk_size, status, created_at, updated_at) 
+         VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)"
+    )
+    .bind(&session_id)
+    .bind(Uuid::new_v4().to_string())
+    .bind(Uuid::new_v4().to_string())
+    .bind(req.file_size)
+    .bind(chunk_size)
+    .bind(Utc::now().to_rfc3339())
+    .bind(Utc::now().to_rfc3339())
+    .execute(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadInitResponse {
+        session_id,
+        chunk_size,
+        total_chunks,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChunkedUploadChunkRequest {
+    pub session_id: String,
+    pub chunk_index: i64,
+}
+
+#[post("/files/upload/chunk")]
+pub async fn chunked_upload_chunk(
+    app_state: web::Data<AppState>,
+    mut payload: Multipart,
+) -> AppResult<HttpResponse> {
+    let mut session_id = String::new();
+    let mut chunk_index: i64 = 0;
+    let mut chunk_data = Vec::new();
+    let mut uploaded_size: i64 = 0;
+    let mut total_size: i64 = 0;
+
+    // Parse multipart form data
+    while let Ok(Some(mut field)) = payload.try_next().await {
+        let name = field.name().to_string();
+
+        match name.as_str() {
+            "session_id" => {
+                let data = field.try_next().await
+                    .map_err(|_| AppError::BadRequest("Failed to read session_id".to_string()))?
+                    .ok_or_else(|| AppError::BadRequest("Empty session_id".to_string()))?;
+                session_id = String::from_utf8(data.to_vec())
+                    .map_err(|_| AppError::BadRequest("Invalid session_id encoding".to_string()))?;
+            }
+            "chunk_index" => {
+                let data = field.try_next().await
+                    .map_err(|_| AppError::BadRequest("Failed to read chunk_index".to_string()))?
+                    .ok_or_else(|| AppError::BadRequest("Empty chunk_index".to_string()))?;
+                let index_str = String::from_utf8(data.to_vec())
+                    .map_err(|_| AppError::BadRequest("Invalid chunk_index encoding".to_string()))?;
+                chunk_index = index_str.parse()
+                    .map_err(|_| AppError::BadRequest("Invalid chunk_index format".to_string()))?;
+            }
+            "chunk" => {
+                while let Ok(Some(data)) = field.try_next().await {
+                    chunk_data.extend_from_slice(&data);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if session_id.is_empty() {
+        return Err(AppError::BadRequest("session_id required".to_string()));
+    }
+
+    // Fetch session from database
+    let session = sqlx::query_as::<_, (String, i64, i64, String)>(
+        "SELECT id, total_size, chunk_size, status FROM upload_sessions WHERE id = $1"
+    )
+    .bind(&session_id)
+    .fetch_optional(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+    .ok_or_else(|| AppError::NotFound)?;
+
+    total_size = session.1;
+    let chunk_size = session.2;
+    uploaded_size = chunk_index * chunk_size;
+
+    // Update session: increment uploaded_size
+    let new_uploaded_size = (chunk_index + 1) * chunk_size.min(total_size - chunk_index * chunk_size);
+    
+    sqlx::query(
+        "UPDATE upload_sessions SET uploaded_size = $1, updated_at = $2 WHERE id = $3"
+    )
+    .bind(new_uploaded_size)
+    .bind(Utc::now().to_rfc3339())
+    .bind(&session_id)
+    .execute(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    let progress_percent = (new_uploaded_size as f32 / total_size as f32) * 100.0;
+
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadProgressResponse {
+        session_id: session_id.clone(),
+        uploaded_size: new_uploaded_size,
+        total_size,
+        progress_percent,
+        status: "uploading".to_string(),
+    })))
+}
+
+#[post("/files/upload/complete/{session_id}")]
+pub async fn chunked_upload_complete(
+    app_state: web::Data<AppState>,
+    path: web::Path<String>,
+    req: web::Json<serde_json::Value>,
+) -> AppResult<HttpResponse> {
+    let session_id = path.into_inner();
+
+    // Fetch session
+    let session = sqlx::query_as::<_, (String, String, i64, i64, String)>(
+        "SELECT id, file_id, total_size, uploaded_size, status FROM upload_sessions WHERE id = $1"
+    )
+    .bind(&session_id)
+    .fetch_optional(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+    .ok_or_else(|| AppError::NotFound)?;
+
+    let (_, file_id, total_size, uploaded_size, _) = session;
+
+    // Verify upload completion
+    if uploaded_size < total_size {
+        return Err(AppError::BadRequest(format!(
+            "Upload incomplete: {} / {} bytes",
+            uploaded_size, total_size
+        )));
+    }
+
+    // Mark session as completed
+    sqlx::query(
+        "UPDATE upload_sessions SET status = 'completed', updated_at = $1 WHERE id = $2"
+    )
+    .bind(Utc::now().to_rfc3339())
+    .bind(&session_id)
+    .execute(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    // Create file record if it doesn't exist (for chunked upload)
+    let file_name = format!("chunked_upload_{}", file_id);
+    let mime_type = "application/octet-stream";
+    let checksum = req.get("checksum")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO files (id, filename, original_name, size, mime_type, checksum, uploaded_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7)"
+    )
+    .bind(&file_id)
+    .bind(&file_name)
+    .bind(&file_name)
+    .bind(total_size)
+    .bind(mime_type)
+    .bind(&checksum)
+    .bind(Utc::now().to_rfc3339())
+    .execute(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?;
+
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadCompleteResponse {
+        file_id: file_id.clone(),
+        filename: file_name,
+        size: total_size,
+        mime_type: mime_type.to_string(),
+        checksum,
+        created_at: Utc::now().to_rfc3339(),
+    })))
+}
+
+#[get("/files/upload/progress/{session_id}")]
+pub async fn chunked_upload_progress(
+    app_state: web::Data<AppState>,
+    path: web::Path<String>,
+) -> AppResult<HttpResponse> {
+    let session_id = path.into_inner();
+
+    let session = sqlx::query_as::<_, (i64, i64, String)>(
+        "SELECT total_size, uploaded_size, status FROM upload_sessions WHERE id = $1"
+    )
+    .bind(&session_id)
+    .fetch_optional(&app_state.db)
+    .await
+    .map_err(|e| AppError::Database(e.to_string()))?
+    .ok_or_else(|| AppError::NotFound)?;
+
+    let (total_size, uploaded_size, status) = session;
+    let progress_percent = (uploaded_size as f32 / total_size as f32) * 100.0;
+
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadProgressResponse {
+        session_id,
+        uploaded_size,
+        total_size,
+        progress_percent,
+        status,
+    })))
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(upload_file)
-        .service(file_stats)        // must be before get_file_metadata (/files/{id})
-        .service(get_file_metadata)
-        .service(download_file)
-        .service(delete_file)
-        .service(list_files);
+    cfg.service(file_stats)        // /files/stats (specific path, register early)
+        .service(chunked_upload_init)      // /files/upload/init (longer path)
+        .service(chunked_upload_chunk)     // /files/upload/chunk
+        .service(chunked_upload_complete)  // /files/upload/complete/{session_id}
+        .service(chunked_upload_progress)  // /files/upload/progress/{session_id}
+        .service(upload_file)              // /files/upload (general multipart)
+        .service(get_file_metadata)        // /files/{id}
+        .service(download_file)            // /files/{id}/download
+        .service(delete_file)              // /files/{id}
+        .service(list_files);              // /files (generic list)
 }

@@ -159,3 +159,38 @@ pub struct PresignedUrlError {
 
 // Module declarations for organized models
 pub mod file_metadata;
+
+// Wave 2B: Chunked Upload API
+#[derive(Debug, Deserialize)]
+pub struct ChunkedUploadInitRequest {
+    pub file_name: String,
+    pub file_size: i64,
+    pub mime_type: Option<String>,
+    pub chunk_size: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ChunkedUploadInitResponse {
+    pub session_id: String,
+    pub chunk_size: i64,
+    pub total_chunks: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ChunkedUploadProgressResponse {
+    pub session_id: String,
+    pub uploaded_size: i64,
+    pub total_size: i64,
+    pub progress_percent: f32,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ChunkedUploadCompleteResponse {
+    pub file_id: String,
+    pub filename: String,
+    pub size: i64,
+    pub mime_type: String,
+    pub checksum: String,
+    pub created_at: String,
+}
