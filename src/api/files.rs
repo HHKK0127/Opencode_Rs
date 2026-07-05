@@ -13,6 +13,7 @@ use crate::app_state::AppState;
 use crate::storage::{FileMetadata as StorageFileMetadata};
 use crate::validation::FileValidator;
 use crate::cache::metrics::{REDIS_OPERATIONS_TOTAL, REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL};
+use crate::cache::UploadSessionManager;
 use crate::models::{ChunkedUploadInitRequest, ChunkedUploadInitResponse, ChunkedUploadProgressResponse, ChunkedUploadCompleteResponse};
 
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // Wave 2: 100MB
@@ -480,7 +481,7 @@ pub async fn chunked_upload_chunk(
     mut payload: Multipart,
 ) -> AppResult<HttpResponse> {
     let mut session_id = String::new();
-    let mut chunk_index: i64 = 0;
+    let mut chunk_index: i32 = 0;
     let mut chunk_data = Vec::new();
     let mut uploaded_size: i64 = 0;
     let mut total_size: i64 = 0;
@@ -531,10 +532,10 @@ pub async fn chunked_upload_chunk(
 
     total_size = session.1;
     let chunk_size = session.2;
-    uploaded_size = chunk_index * chunk_size;
+    uploaded_size = (chunk_index as i64) * chunk_size;
 
     // Update session: increment uploaded_size
-    let new_uploaded_size = (chunk_index + 1) * chunk_size.min(total_size - chunk_index * chunk_size);
+    let new_uploaded_size = ((chunk_index as i64) + 1) * chunk_size.min(total_size - (chunk_index as i64) * chunk_size);
     
     sqlx::query(
         "UPDATE upload_sessions SET uploaded_size = $1, updated_at = $2 WHERE id = $3"
@@ -545,6 +546,13 @@ pub async fn chunked_upload_chunk(
     .execute(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;
+
+    // Update Redis cache if available (optional performance optimization)
+    if let Some(redis) = app_state.get_cache() {
+        let upload_session_mgr = UploadSessionManager::new(redis.clone());
+        // Try to update cache, but don't fail if Redis is unavailable
+        let _ = upload_session_mgr.update_progress(&session_id, new_uploaded_size, chunk_index).await;
+    }
 
     let progress_percent = (new_uploaded_size as f32 / total_size as f32) * 100.0;
 
@@ -618,13 +626,19 @@ pub async fn chunked_upload_complete(
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;
 
+    // Mark session as completed in Redis cache if available
+    if let Some(redis) = app_state.get_cache() {
+       let upload_session_mgr = UploadSessionManager::new(redis.clone());
+       let _ = upload_session_mgr.mark_completed(&session_id, &file_id).await;
+    }
+
     Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadCompleteResponse {
-        file_id: file_id.clone(),
-        filename: file_name,
-        size: total_size,
-        mime_type: mime_type.to_string(),
-        checksum,
-        created_at: Utc::now().to_rfc3339(),
+       file_id: file_id.clone(),
+       filename: file_name,
+       size: total_size,
+       mime_type: mime_type.to_string(),
+       checksum,
+       created_at: Utc::now().to_rfc3339(),
     })))
 }
 
@@ -635,6 +649,21 @@ pub async fn chunked_upload_progress(
 ) -> AppResult<HttpResponse> {
     let session_id = path.into_inner();
 
+    // Try Redis cache first if available
+    if let Some(redis) = app_state.get_cache() {
+        let upload_session_mgr = UploadSessionManager::new(redis.clone());
+        if let Ok(Some(cached_session)) = upload_session_mgr.get_session(&session_id).await {
+            return Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadProgressResponse {
+                session_id,
+                uploaded_size: cached_session.uploaded_size,
+                total_size: cached_session.total_size,
+                progress_percent: cached_session.progress_percent(),
+                status: cached_session.status,
+            })));
+        }
+    }
+
+    // Fallback to SQLite
     let session = sqlx::query_as::<_, (i64, i64, String)>(
         "SELECT total_size, uploaded_size, status FROM upload_sessions WHERE id = $1"
     )

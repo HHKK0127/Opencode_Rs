@@ -77,7 +77,7 @@ async fn main() -> std::io::Result<()> {
     let redis_cache = match cache::RedisCache::new(cache::RedisCacheConfig {
         url: redis_url.clone(),
         max_connections: 50,
-        connection_timeout_ms: 5000,
+        connection_timeout_ms: 2000,  // 短縮: 5秒 → 2秒
     })
     .await
     {

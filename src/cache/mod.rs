@@ -11,5 +11,5 @@ pub use redis::{RedisCache, RedisCacheConfig};
 pub use metrics::{register_redis_metrics, REDIS_CONNECTIONS_ACTIVE, REDIS_COMMAND_DURATION_SECONDS, REDIS_ERRORS_TOTAL};
 pub use strategy::{CacheStrategy, CacheAsideStrategy, WriteThroughStrategy, CacheTTLConfig};
 pub use invalidation::{InvalidationPattern, CacheInvalidationManager};
-pub use session::{SessionData, SessionManager};
+pub use session::{SessionData, SessionManager, UploadSessionData, UploadSessionManager};
 pub use scan::RedisScanner;
