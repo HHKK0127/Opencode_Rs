@@ -1,48 +1,76 @@
-import { useState, useEffect, useRef } from 'react'
-import { Sidebar } from './components/Sidebar'
-import { ChatContainer } from './components/ChatContainer'
-import { Composer } from './components/Composer'
-import { ErrorToast } from './components/ErrorToast'
-import { useMessages } from './services/useMessages'
+import { useState } from 'react'
+import { LoginPanel } from './components/LoginPanel'
+import { FileUploadPanel } from './components/FileUploadPanel'
+import { FileList } from './components/FileList'
 import './styles/app.css'
 
 const App = () => {
-  const { messages, sendMessage, isLoading, error, setError } = useMessages()
-  const [inputValue, setInputValue] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [fileRefresh, setFileRefresh] = useState(0)
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const handleLoginSuccess = () => {
+    setIsLoggedIn(true)
+    setError(null)
   }
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+  const handleUploadComplete = () => {
+    // ファイル一覧を更新
+    setFileRefresh(fileRefresh + 1)
+  }
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return
-    sendMessage(inputValue)
-    setInputValue('')
+  if (!isLoggedIn) {
+    return (
+      <LoginPanel
+        onLoginSuccess={handleLoginSuccess}
+        onError={(err) => setError(err)}
+      />
+    )
   }
 
   return (
     <div className="app-container">
-      <Sidebar />
-      <div className="main-area">
-        <div className="session-header">
-          <h2>New Chat</h2>
+      <header className="app-header">
+        <h1>📁 OpenCode - ファイル管理</h1>
+        <button
+          onClick={() => {
+            setIsLoggedIn(false)
+            localStorage.removeItem('authToken')
+          }}
+          className="logout-button"
+        >
+          ログアウト
+        </button>
+      </header>
+
+      <main className="app-main">
+        {error && (
+          <div className="error-toast">
+            <span>{error}</span>
+            <button onClick={() => setError(null)}>✕</button>
+          </div>
+        )}
+
+        <div className="content-container">
+          <section className="upload-section">
+            <h2>📤 ファイルアップロード</h2>
+            <FileUploadPanel
+              onUploadComplete={handleUploadComplete}
+              onError={(err) => setError(err)}
+            />
+          </section>
+
+          <section className="list-section">
+            <FileList
+              refresh={fileRefresh}
+              onError={(err) => setError(err)}
+            />
+          </section>
         </div>
-        <ChatContainer messages={messages} messagesEndRef={messagesEndRef} isLoading={isLoading} />
-        <Composer
-          value={inputValue}
-          onChange={setInputValue}
-          onSend={handleSend}
-          isLoading={isLoading}
-        />
-      </div>
-      {error && <ErrorToast message={error} onClose={() => setError(null)} />}
+      </main>
     </div>
   )
 }
 
 export default App
+
