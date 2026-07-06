@@ -143,3 +143,4 @@ export const getFileMetadata = async (fileId: string) => {
 export const downloadFile = (fileId: string) => {
   return `${API_BASE}/api/v1/files/${fileId}/download`
 }
+

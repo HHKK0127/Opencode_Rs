@@ -47,6 +47,7 @@
 | Phase 2B | Chunked Upload | ✅ 完了 | 1e09566 |
 | Phase 2C | Redis キャッシュ | ✅ 完了 | 3abf6f9 |
 | Phase 2D | React UI | ✅✅ 完了 | f35c184 |
+| Phase 2E | Tauri + Zustand | ✅ 完了 | NEW |
 
 ---
 

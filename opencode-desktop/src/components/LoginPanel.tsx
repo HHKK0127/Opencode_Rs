@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { login } from '../services/api'
+import { backendAPI } from '../services/backend-api'
+import { useAppStore } from '../store/app'
 import '../styles/LoginPanel.css'
 
 interface LoginPanelProps {
@@ -12,6 +13,7 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onError 
   const [password, setPassword] = useState('testpassword')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { setAuthenticated, setUser, setToken } = useAppStore()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -19,13 +21,12 @@ export const LoginPanel: React.FC<LoginPanelProps> = ({ onLoginSuccess, onError 
       setIsLoading(true)
       setError(null)
 
-      const response = await login(username, password)
+      const { token, user } = await backendAPI.login(username, password)
 
-      if (response?.data?.token) {
-        onLoginSuccess?.()
-      } else {
-        throw new Error(response?.message || 'ログイン失敗')
-      }
+      setToken(token)
+      setUser(user)
+      setAuthenticated(true)
+      onLoginSuccess?.()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'ログイン失敗'
       setError(message)

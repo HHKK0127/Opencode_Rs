@@ -146,7 +146,7 @@ pub async fn get_file_metadata(
 
     // Fetch from database
     let file = sqlx::query_as::<_, (String, String, String, i64, String, String, bool)>(
-        "SELECT id, filename, COALESCE(original_name, filename), size, COALESCE(mime_type, ''), uploaded_at::text, COALESCE(is_public, false) FROM files WHERE id = $1"
+        "SELECT id, filename, COALESCE(original_name, filename), size, COALESCE(mime_type, ''), uploaded_at, COALESCE(is_public, false) FROM files WHERE id = $1"
     )
     .bind(&file_id)
     .fetch_optional(&app_state.db)
@@ -308,7 +308,7 @@ pub async fn list_files(
 
     // Fetch from database
     let files = sqlx::query_as::<_, (String, String, i64, String, String)>(
-        "SELECT id, filename, size, COALESCE(mime_type, ''), uploaded_at::text FROM files ORDER BY uploaded_at DESC LIMIT $1 OFFSET $2"
+        "SELECT id, filename, size, COALESCE(mime_type, ''), uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT $1 OFFSET $2"
     )
     .bind(per_page as i64)
     .bind(offset as i64)
@@ -419,7 +419,7 @@ fn sanitize_filename(filename: &str) -> String {
 #[get("/files/stats")]
 pub async fn file_stats(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
     let row = sqlx::query_as::<_, (i64, i64, i64, i64)>(
-        "SELECT COUNT(*), COALESCE(SUM(size), 0)::BIGINT, COALESCE(AVG(size), 0)::BIGINT, COUNT(DISTINCT mime_type) FROM files"
+        "SELECT COUNT(*), COALESCE(SUM(size), 0), COALESCE(AVG(size), 0), COUNT(DISTINCT mime_type) FROM files"
     )
     .fetch_one(&app_state.db)
     .await
