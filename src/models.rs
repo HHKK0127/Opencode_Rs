@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 // ============================================================
 // 統一API Response Envelope (Wave 6: フロントエンド統合)

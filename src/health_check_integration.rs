@@ -3,7 +3,7 @@ use crate::graceful::{GracefulShutdown, ActiveConnections};
 use crate::production::health_check::{HealthChecker, HealthStatus};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::warn;
 
 /// Integrated health check system
 pub struct IntegratedHealthCheck {

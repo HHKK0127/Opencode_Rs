@@ -1,7 +1,5 @@
 use super::event::Event;
-use std::sync::Arc;
 use tokio::sync::broadcast;
-use tracing::debug;
 
 /// Message sent through notification channel
 #[derive(Debug, Clone)]

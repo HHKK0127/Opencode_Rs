@@ -3,11 +3,10 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use actix_web::{dev::ServiceRequest, HttpResponse, Error};
+use actix_web::{dev::ServiceRequest, Error};
 use actix_web::dev::{Service, Transform, ServiceResponse};
 use futures::future::{ok, Ready, LocalBoxFuture};
 use std::task::{Context, Poll};
-use std::pin::Pin;
 use tracing::warn;
 
 use crate::error::AppError;

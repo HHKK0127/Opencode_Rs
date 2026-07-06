@@ -4,7 +4,6 @@ use actix_web::{
 };
 use futures::future::{ok, Ready};
 use std::pin::Pin;
-use std::task::{Context, Poll};
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use std::rc::Rc;
 

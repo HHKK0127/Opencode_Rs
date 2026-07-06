@@ -1,7 +1,6 @@
-use super::{StorageError, StorageResult};
+use super::StorageResult;
 use bytes::Bytes;
 use std::collections::HashMap;
-use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 pub struct MultipartUploadSession {

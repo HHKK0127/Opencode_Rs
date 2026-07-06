@@ -30,8 +30,7 @@
         "resizable": true,
         "fullscreen": false,
         "center": true,
-        "decorations": true,
-        "darkTemplate": true
+        "decorations": true
       }
     ],
     "security": {

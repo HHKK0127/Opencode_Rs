@@ -10,7 +10,7 @@ use actix_web::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use crate::{
     app_state::AppState,

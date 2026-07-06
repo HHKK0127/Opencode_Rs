@@ -2,7 +2,7 @@
 use crate::notifications::event::Event;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{debug, info, warn};
+use tracing::info;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedEvent {

@@ -1,4 +1,4 @@
-use super::{FileMetadata, StorageBackend, StorageError, StorageResult, StorageUrl};
+use super::{FileMetadata, StorageBackend, StorageResult, StorageUrl};
 use async_trait::async_trait;
 use bytes::Bytes;
 use std::sync::Arc;

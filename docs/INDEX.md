@@ -1,38 +1,55 @@
 # OpenCode Documentation Index
 
 **統合ドキュメント インデックス**  
-**Wave 4 Day 14 完成版** (2026-06-05)
+**最終更新**: 2026-07-06  
+**現在のフェーズ**: Wave 5 完成 → Electron フロントエンド実装 📋
 
 ---
 
 ## 📚 ドキュメント全体構成
 
-このディレクトリは、OpenCode Rust 移行プロジェクト（PoC + Wave 1-4）の統一ドキュメント体系です。
+このディレクトリは、OpenCode Rust 移行プロジェクト（Wave 1-5 完成）+ Electron デスクトップアプリ開発の統一ドキュメント体系です。
 
 ```
 docs/
 ├── INDEX.md (このファイル)
 │
+├── Current/                       # 📁 現在アクティブな計画・メモリ
+│   ├── ELECTRON_FRONTEND_PLAN.md # Electron + React デスクトップアプリ計画（5 Phase）
+│   └── MEMORY.md                 # プロジェクトメモリ・意思決定ログ
+│
 ├── API/                          # API仕様・インテグレーション
-│   └── API_SPECIFICATION.md     # 全API エンドポイント定義 + メトリクス (Wave 1-3)
+│   ├── API_SPECIFICATION.md     # 全API エンドポイント定義 + メトリクス (Wave 1-5)
+│   └── API_MAPPING.md           # API エンドポイントマッピング
+│
+├── Architecture/                 # 📁 アーキテクチャ設計
+│   ├── ZED_UI_ARCHITECTURE_ANALYSIS.md  # Zed UI アーキテクチャ分析
+│   ├── ZED_UI_QUICK_REFERENCE.md       # Zed UI クイックリファレンス
+│   ├── PROTOCOL_MAPPING.md             # プロトコルマッピング
+│   └── OPENCODE_UI_IMPROVEMENT_PLAN.md # OpenCode UI 改善計画
 │
 ├── Operations/                   # 本番運用ガイド
 │   ├── DEPLOYMENT.md            # デプロイ手順・チェックリスト
 │   ├── CANARY_RELEASE_PLAN.md   # 3フェーズ本番リリース計画
-│   ├── RUNBOOK.md               # 緊急対応・オンコール手順
 │   ├── OPERATIONS_GUIDE.md      # 日常運用・トラブルシューティング
 │   └── MONITORING.md            # Prometheus・Grafana・アラート設定
 │
 ├── Performance/                  # パフォーマンス管理
-│   ├── PERFORMANCE_BENCHMARKS.md # SLO・ロードテスト結果・メトリクス (Wave 3 完成)
-│   └── LOAD_TEST_PLAN.md        # ロードテスト計画・実行ガイド
+│   ├── PERFORMANCE_BENCHMARKS.md # SLO・ロードテスト結果・メトリクス
+│   ├── LOAD_TEST_PLAN.md        # ロードテスト計画・実行ガイド
+│   ├── LOAD_TEST_SETUP_WAVE4.md # Wave 4 テスト環境セットアップ
+│   └── LOAD_TEST_RESULTS_WAVE4.md # Wave 4 パフォーマンステスト結果
 │
 ├── Planning/                     # 実装計画・設計ドキュメント
+│   ├── WAVE5_DETAILED_PLAN.md   # Wave 5 本番化準備詳細計画 ✅ 完成
+│   ├── WAVE5_COMPLETION_REPORT.md # Wave 5 完成報告 ✅
+│   ├── WAVE4_DETAILED_PLAN.md   # Wave 4 Redis キャッシング計画 ✅ 完成
+│   ├── WAVE4_COMPLETION_REPORT.md # Wave 4 完成報告 ✅
 │   ├── WAVE3_DETAILED_PLAN.md   # Wave 3 S3/MinIO統合計画 ✅ 完成
 │   ├── WAVE3_IMPLEMENTATION_GUIDE.md # Wave 3 実装ガイド ✅ 完成
-│   ├── WAVE4_DETAILED_PLAN.md   # Wave 4 Redis キャッシング計画 📋 計画中
+│   ├── WAVE3_COMPLETION_REPORT.md # Wave 3 完成報告 ✅
 │   ├── HERMES_INTEGRATION_ANALYSIS.md # Hermes 統合可能性分析
-│   ├── HERMES_INTEGRATION_TECHNICAL.md # Hermes 実装仕様書 (Days 16-17)
+│   ├── HERMES_INTEGRATION_TECHNICAL.md # Hermes 実装仕様書
 │   └── HERMES_INTEGRATION_DECISION.md # Hermes 統合意思決定レポート
 │
 └── Archive/                      # 過去の完了報告書・進捗ログ
@@ -420,7 +437,9 @@ Wave 1-3 の完了報告書・進捗ログ
 
 | Date | Document | Change | Author |
 |------|----------|--------|--------|
-| 2026-06-05 | Planning/WAVE5_DETAILED_PLAN.md | Wave 5 本番化準備詳細計画作成（4 Phase, 231 tests） | Claude |
+| 2026-07-06 | docs/INDEX.md | Electron フロントエンド計画セクション追加、Current/Architecture フォルダ構造追加 | Claude |
+| 2026-07-06 | (整理) | 古いログファイル 39個削除、未使用インポート警告 12個削減 | Claude |
+| 2026-06-25 | (Wave 5) | 本番環境完全完成・稼働開始 (229/229 tests) | Team |
 | 2026-06-05 | docs/INDEX.md | Wave 5 計画セクション追加、Wave 4 完成マーク更新 | Claude |
 | 2026-06-05 | Performance/LOAD_TEST_SETUP_WAVE4.md | Wave 4 Day 15 テスト環境セットアップガイド | Claude |
 | 2026-06-05 | tests/load/wave4_*.js | k6 パフォーマンステストスクリプト (4個) | Claude |
@@ -469,18 +488,23 @@ Wave 1-3 の完了報告書・進捗ログ
 ---
 
 **OpenCode Documentation Complete**  
-**Last Updated**: 2026-06-05  
+**Last Updated**: 2026-07-06  
 **Status**: 
-- Wave 1-3 ✅ 完成 (基盤、ファイル処理、S3/MinIO統合)
-- Wave 4 ✅ 完成 (210/215 tests = 97.7%, 2026-06-05)
-  - Day 11: Redis 基盤実装 ✅
-  - Day 12: キャッシュストラテジ ✅
-  - Day 13: API キャッシング統合 ✅
-  - Day 14: セッション管理（JWT + Redis） ✅
-  - Day 15: パフォーマンステスト計画・スクリプト完成 📋
-- Wave 5 計画 📋 完成 (4 Phase, 8日間, 231 tests)
-  - Phase 1: Production Grade Optimization (Day 16-17)
-  - Phase 2: デプロイメント準備 (Day 18-19)
-  - Phase 3: Canary リリース (Day 20-21)
-  - Phase 4: 本番完全移行 (Day 22-23)
-- ドキュメント統合・整理 ✅ 完了（Wave 5 計画を反映）
+- Wave 1-5 ✅ 完成 (2026-06-25)
+  - 基盤（PoC）、ファイル処理、S3/MinIO統合、Redis キャッシング、本番化準備
+  - 229/229 テスト合格 (100%)
+  - 本番稼働中（localhost:8080）
+  
+- **Electron フロントエンド実装** 📋 計画中 (2026-07-06～)
+  - Phase 1: Electron セットアップ（2-3h）
+  - Phase 2: 認証画面・バックエンド接続（3-4h）
+  - Phase 3: ファイルエクスプローラー・コードエディタ（4-5h）
+  - Phase 4: メニュー・ショートカット・IPC通信（2-3h）
+  - Phase 5: テスト・ビルド・デプロイ（2-3h）
+  - **合計見積**: 13-18 時間
+  - **重要方針**: Web ベース禁止、Electron ネイティブウィンドウのみ
+  
+- ドキュメント整理 ✅ 完了 (2026-07-06)
+  - Current/, Architecture/ フォルダ追加
+  - 古いログファイル 39個削除
+  - 未使用インポート警告 12個削減（150個→138個）
