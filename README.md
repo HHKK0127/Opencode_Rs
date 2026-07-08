@@ -145,6 +145,79 @@ RUST_BACKTRACE=1 cargo test
 
 ---
 
+## 🗺️ ロードマップ / Roadmap
+
+OpenCode_Rs は現在 **3つのプロジェクト** を並行開発しています。
+主軸は **opencode-electron (デスクトップアプリ)** の Phase 2-7 完了です。
+
+Three projects running in parallel. The main focus is completing **opencode-electron Phases 2-7**.
+
+### 全体マイルストーン / Global Milestones
+
+```mermaid
+gantt
+    title OpenCode_Rs 全体ロードマップ
+    dateFormat  YYYY-MM-DD
+    axisFormat  %m/%d
+
+    section 🖥️ Electron Desktop (Main)
+    Phase 2: 認証画面                           :active, 2026-07-08, 5d
+    Phase 3: ダッシュボード                     :2026-07-14, 7d
+    Phase 4: エディタ (Monaco)                  :2026-07-22, 8d
+    Phase 5: Electron 機能                      :2026-08-01, 7d
+    Phase 6: テスト・品質                        :2026-08-09, 7d
+    Phase 7: リリース                            :2026-08-17, 5d
+
+    section 🦀 Backend (opencode_poc)
+    メンテナンス・安定運用                      :done, 2026-07-01, 60d
+
+    section 📡 Desktop Server (opencode-core)
+    Phase 2: 単体テスト                         :2026-08-01, 7d
+    Phase 3: Provider 管理                      :2026-08-09, 7d
+    Phase 4: ツール実行エンジン                  :2026-08-17, 7d
+```
+
+### プロジェクト別ロードマップ / Per-Project Roadmap
+
+#### 🖥️ opencode-electron (Desktop App) — メイン開発中
+
+Electron + SolidJS で OpenCode デスクトップクライアントを構築。
+
+| Phase | マイルストーン / Milestone | 日付 / Date | 状態 |
+|:-----:|---------------------------|:----------:|:----:|
+| 0 | セキュリティ修正済み基盤 / Scaffold | ~Jul 03 | ✅ Done |
+| 1 | Electron 起動確認 / Boot & Verify | ~Jul 08 | ✅ Done |
+| **2** | **認証画面 / Login + JWT** | **Jul 08-13** | **🔄 Active** |
+| 3 | ダッシュボード / Dashboard + File Browser | Jul 14-21 | ⏳ |
+| 4 | コードエディタ / Monaco Editor + Tabs | Jul 22-31 | ⏳ |
+| 5 | Electron機能 / Menu + Tray + Auto-update | Aug 01-07 | ⏳ |
+| 6 | テスト・品質 / Vitest + Playwright | Aug 08-15 | ⏳ |
+| 7 | リリース / electron-builder + GitHub Releases | Aug 16-22 | ⏳ |
+
+**🔗 詳細**: `opencode-electron/README.md`
+
+#### 🦀 opencode_poc (API Server) — 完了・安定運用中
+
+Wave 1-5 全完了 (229/229 tests ✅)。**本番移行 GO** — 新規機能追加なし、メンテナンスのみ。
+
+| Task | Status |
+|------|:------:|
+| 既存機能の安定運用 / Stable operations | ✅ Active |
+| 必要に応じたバグ修正 / Bug fixes as needed | ⏳ |
+
+#### 📡 opencode-core (Desktop Server) — V2 API Phase 1 完了
+
+Rust で OpenCode Desktop サーバープロトコルを再実装。V2 API の基本エンド＋イベント配信まで完了。
+
+| Phase | マイルストーン / Milestone | 状態 |
+|:-----:|---------------------------|:----:|
+| 1 | V2 API 全エンドポイント + SSE + モックLLM | ✅ Done |
+| 2 | 単体テスト追加 / Unit tests | ⏳ |
+| 3 | Provider API キー管理 / Provider key management | ⏳ |
+| 4 | ツール実行エンジン / Tool execution engine | ⏳ |
+
+---
+
 ## 🔧 開発環境 / Development Setup
 
 ### 必要条件 / Prerequisites
