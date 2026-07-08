@@ -49,3 +49,12 @@ vendor/
 
 # Docker build log
 docker-build.log
+
+# OneDrive temporary files
+.tmp.driveupload/
+
+# Node.js dependencies (opencode-desktop, opencode-electron)
+node_modules/
+
+# Tauri build artifacts
+opencode-desktop/src-tauri/target/
