@@ -192,7 +192,7 @@ pub struct SessionManager {
 - [Wave 4 詳細計画](./WAVE4_DETAILED_PLAN.md)
 - [API 仕様書](../API/API_SPECIFICATION.md) v1.1.0
 - [パフォーマンス基準](../Performance/PERFORMANCE_BENCHMARKS.md)
-- [開発ガイド](../../CLAUDE.md)
+- [開発ガイド](../../AGENTS.md)
 
 ---
 

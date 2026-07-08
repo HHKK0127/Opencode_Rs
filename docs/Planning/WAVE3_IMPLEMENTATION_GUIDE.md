@@ -154,7 +154,7 @@ docker-compose -f docker-compose.minio.yml up -d
 1. **[docs/Planning/WAVE3_DETAILED_PLAN.md](./WAVE3_DETAILED_PLAN.md)** — 詳細計画・Day別タスク
 2. **[docs/API/API_SPECIFICATION.md](../API/API_SPECIFICATION.md)** — 既存API仕様
 3. **[docs/Performance/PERFORMANCE_BENCHMARKS.md](../Performance/PERFORMANCE_BENCHMARKS.md)** — SLO（p95 < 150ms）
-4. **[CLAUDE.md](../../CLAUDE.md)** — プロジェクト全体構成
+4. **[AGENTS.md](../../AGENTS.md)** — プロジェクト全体構成
 
 ### 参考
 - AWS SDK: https://github.com/awslabs/aws-sdk-rust

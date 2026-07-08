@@ -89,7 +89,7 @@
   - Canary deployment strategy
 
 #### ✅ Documentation Updates
-- Updated `CLAUDE.md`:
+- Updated `AGENTS.md`:
   - New project structure reflecting API reorganization
   - Configuration system documentation
   - Deployment instructions
@@ -214,7 +214,7 @@ Wave 1 completion tasks:
 - src/main.rs (config loading, dynamic binding)
 - src/api/auth.rs (config integration for JWT)
 - src/auth_middleware.rs (config-driven verification)
-- CLAUDE.md (comprehensive updates)
+- AGENTS.md (comprehensive updates)
 
 ## Next Steps
 

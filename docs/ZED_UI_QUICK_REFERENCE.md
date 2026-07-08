@@ -771,7 +771,7 @@ div()
 ## Resources & References
 
 **Key Files in OpenCode_Rs:**
-- CLAUDE.md - Project context
+- AGENTS.md - Project context
 - crates/gpui/src/element.rs - Element lifecycle (870 lines)
 - crates/gpui/src/styled.rs - Styling trait (885 lines)
 - crates/ui/src/components/button/button.rs - Button implementation (612 lines)

@@ -316,7 +316,7 @@ token_expiry_hours = 24
 | ROLLBACK.md | Emergency rollback procedures | 450+ |
 | WAVE2_COMPLETION.md | This completion report | 500+ |
 | DEPLOYMENT.md | Deployment guide (Wave 1) | 200 |
-| CLAUDE.md | Development instructions | 400 |
+| AGENTS.md | Development instructions | 400 |
 
 ---
 
@@ -379,7 +379,7 @@ token_expiry_hours = 24
 - [x] All 47 tests passing (100% pass rate)
 - [x] No compiler warnings
 - [x] No clippy warnings
-- [x] Code reviewed (architecture documented in CLAUDE.md)
+- [x] Code reviewed (architecture documented in AGENTS.md)
 - [x] Error handling comprehensive (400, 401, 404, 500 cases)
 - [x] Input validation on all endpoints (filename, size, ranges)
 
@@ -424,7 +424,7 @@ token_expiry_hours = 24
 - [x] Log aggregation ready (JSON format)
 
 ### Documentation
-- [x] CLAUDE.md (development instructions)
+- [x] AGENTS.md (development instructions)
 - [x] DEPLOYMENT.md (deployment procedures)
 - [x] ROLLBACK.md (emergency procedures)
 - [x] API documentation (endpoint specs)
@@ -471,7 +471,7 @@ token_expiry_hours = 24
 - Incident commander: Major incident response
 
 ### Recommended Reading Order
-1. `CLAUDE.md` - Architecture overview (10 min read)
+1. `AGENTS.md` - Architecture overview (10 min read)
 2. `DEPLOYMENT.md` - Production setup (15 min read)
 3. `API endpoints table` (above) - All available endpoints (5 min)
 4. `ROLLBACK.md` - Emergency procedures (30 min familiarization)
@@ -600,7 +600,7 @@ This Wave 2 implementation delivers a **complete, production-ready file processi
 - **Performance**: p95 latency 50ms, peak throughput 12.5 ops/sec
 - **Reliability**: 99.98% uptime under load, <0.1% error rate
 - **Security**: JWT auth, filename sanitization, input validation
-- **Documentation**: CLAUDE.md, DEPLOYMENT.md, ROLLBACK.md, API specs
+- **Documentation**: AGENTS.md, DEPLOYMENT.md, ROLLBACK.md, API specs
 
 ### Production Readiness
 ✅ **APPROVED FOR PRODUCTION DEPLOYMENT**

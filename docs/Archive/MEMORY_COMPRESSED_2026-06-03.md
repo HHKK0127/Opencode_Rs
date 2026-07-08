@@ -179,7 +179,7 @@ docs/
 └── Archive/                      # Historical completion reports
 ```
 
-**CLAUDE.md**: Development commands, architecture, schemas  
+**AGENTS.md**: Development commands, architecture, schemas  
 **GitHub**: https://github.com/HHKK0127/Opencode_Rs (main branch)
 
 ---
@@ -390,7 +390,7 @@ Each phase has automatic rollback triggers：
 ## 🔗 重要なリンク・ファイル
 
 ### プロジェクト設定
-- `CLAUDE.md` — プロジェクト全体ガイド・開発コマンド（this file）
+- `AGENTS.md` — プロジェクト全体ガイド・開発コマンド（this file）
 - `Cargo.toml` — 依存関係・ビルド設定
 - `Dockerfile` — マルチステージビルド
 - `docker-compose.yml` — 本番サービス編成
