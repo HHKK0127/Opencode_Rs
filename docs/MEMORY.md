@@ -1,6 +1,6 @@
 # Project Memory - OpenCode Rust PoC
 
-**Last Updated:** 2026-06-30 (OpenCode v2 API Phase 1 完了)
+**Last Updated:** 2026-07-08 (Electron Frontend Phase 1 完了)
 
 ---
 
@@ -8,15 +8,31 @@
 
 OpenCode (43K-line TypeScript AI development tool) の Rust ハイブリッドバックエンド移行
 - **パターン**: Strangler Fig (段階的移行)
-- **現在地**: Wave 5 全フェーズ完成 → **本番移行 GO ✅**
+- **バックエンド**: Wave 5 全フェーズ完成 → **本番移行 GO ✅**
 - **テスト**: 229/229 tests (100%) ✅
 - **本番対応**: PRODUCTION READY
+
+### 🔥 現在アクティブ: Electron デスクトップフロントエンド
+
+**プロジェクト**: `opencode-electron/` — SolidJS + Electron デスクトップクライアント
+
+| フェーズ | 内容 | 状態 |
+|---------|------|:----:|
+| Phase 0 | セキュリティ修正済み scaffold (Response Envelope 対応) | ✅ 2026-07-06 |
+| Phase 1 | Electron セットアップ + 起動確認 | ✅ 2026-07-08 |
+| Phase 2 | 認証画面・バックエンド接続 | 🔄 Current |
+| Phase 3–7 | ダッシュボード・エディタ・リリース | ⏳ |
+
+**技術スタック**: SolidJS + TypeScript (strict) + Electron 31 + Vite 8.1 + electron-store (暗号化)
+**起動**: `cd opencode-electron && npm run dev` → http://localhost:5173/
+
+詳細なロードマップは `opencode-electron/README.md` を参照。
 
 ### サブプロジェクト: opencode-core (OpenCode Desktop 再実装)
 
 OpenCode Desktop サーバープロトコルを Rust (Actix-web) で再実装。
 
-**ステータス: V2 API Phase 1 実装完了 ✅**
+**ステータス: V2 API Phase 1 実装完了 ✅** (2026-06-30)
 - `@opencode-ai/sdk` の auto-generated client から V2 API 仕様を抽出
 - SSE ストリーミング + EventBus (`tokio::sync::broadcast`)
 - セッション CRUD (V1 + V2)
@@ -117,11 +133,22 @@ cargo run
 
 ## 📌 未完了タスク（次回セッション時）
 
+### バックエンド (PoC)
 - [x] **git push origin main** — 完了済み（b8e183a, 5644c67, e58aece）
 - [x] `tests/legacy/` のファイルを PostgreSQL API に移行 — 完了済み（2026-06-26）
 - [ ] **ビルド環境修正**: `vendor/` ディレクトリの `num-traits` ビルドスクリプトが書き込み権限エラーで失敗。`cargo clean` + `.cargo/config.toml` の見直しが必要
 - [ ] **運用・監視強化** (docs, runbooks)
 - [ ] **ドキュメント整備** (README, API spec)
+
+### Electron フロントエンド (opencode-electron)
+- [x] Phase 0: セキュリティ修正済み scaffold ✅
+- [x] Phase 1: Electron 起動確認 ✅
+- [ ] Phase 2: 認証画面・バックエンド接続 🔄
+- [ ] Phase 3: ダッシュボード・ファイルブラウザ
+- [ ] Phase 4: エディタ (Monaco)
+- [ ] Phase 5: Electron 機能 (メニュー・ショートカット・自動更新)
+- [ ] Phase 6: テスト・品質
+- [ ] Phase 7: リリース
 
 ---
 
@@ -320,6 +347,15 @@ k8s/
 - **Docker**: 
   - PostgreSQL: `opencode-postgres` (port 5432, user: opencode, pw: opencode_password)
   - Redis: `opencode-redis` (port 6379, pw: test_password)
+- **Electron フロントエンド**:
+  - パス: `opencode-electron/`
+  - 起動: `cd opencode-electron && npm run dev`
+  - Vite: http://localhost:5173/
+  - 言語: 応答日本語 / コード英語 (SolidJS/TS camelCase, ファイル kebab-case)
+  - TypeScript: strict mode, `tsc --noEmit` で 0 errors 必須
+  - Electron: sandbox:true, contextIsolation:true, nodeIntegration:false
+  - CSP: script-src 'self' 'unsafe-eval' 'unsafe-inline' (開発時)
+  - 暗号化: OPENCODE_ENCRYPTION_KEY (AES-256, electron-store)
 
 ---
 
@@ -374,8 +410,9 @@ docker-compose -f docker-compose.monitoring.yml up -d   # 監視スタック
 
 ### 次回タスク
 
-1. **動作テスト**: サーバー起動 → curl で各エンドポイント確認 → SSE 動作確認
-2. **フロントエンド統合**: assistant-ui (React) とバックエンドを接続
-3. **単体テスト追加**: `cargo test -p opencode-core` 用のテストコード
-4. **Provider管理**: APIキー永続化・暗号化
-5. **ツール実行エンジン**: 実際のファイル操作・コマンド実行
+1. **Electron Phase 2**: ログイン画面 UI + バックエンド接続
+2. **動作テスト**: サーバー起動 → curl で各エンドポイント確認 → SSE 動作確認
+3. **フロントエンド統合**: assistant-ui (React) とバックエンドを接続
+4. **単体テスト追加**: `cargo test -p opencode-core` 用のテストコード
+5. **Provider管理**: APIキー永続化・暗号化
+6. **ツール実行エンジン**: 実際のファイル操作・コマンド実行

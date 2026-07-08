@@ -1,8 +1,8 @@
 # OpenCode Documentation Index
 
 **統合ドキュメント インデックス**  
-**最終更新**: 2026-07-06  
-**現在のフェーズ**: Wave 5 完成 → Electron フロントエンド実装 📋
+**最終更新**: 2026-07-08  
+**現在のフェーズ**: Electron フロントエンド Phase 2 (認証画面) 🔄
 
 ---
 
@@ -15,8 +15,8 @@ docs/
 ├── INDEX.md (このファイル)
 │
 ├── Current/                       # 📁 現在アクティブな計画・メモリ
-│   ├── ELECTRON_FRONTEND_PLAN.md # Electron + React デスクトップアプリ計画（5 Phase）
-│   └── MEMORY.md                 # プロジェクトメモリ・意思決定ログ
+│   ├── MEMORY.md                 # プロジェクトメモリ・意思決定ログ
+│   └── (Electron frontend: opencode-electron/README.md を参照)
 │
 ├── API/                          # API仕様・インテグレーション
 │   ├── API_SPECIFICATION.md     # 全API エンドポイント定義 + メトリクス (Wave 1-5)
@@ -32,6 +32,7 @@ docs/
 │   ├── DEPLOYMENT.md            # デプロイ手順・チェックリスト
 │   ├── CANARY_RELEASE_PLAN.md   # 3フェーズ本番リリース計画
 │   ├── OPERATIONS_GUIDE.md      # 日常運用・トラブルシューティング
+│   ├── RUNBOOK.md               # オンコール・緊急対応手順
 │   └── MONITORING.md            # Prometheus・Grafana・アラート設定
 │
 ├── Performance/                  # パフォーマンス管理
@@ -437,6 +438,7 @@ Wave 1-3 の完了報告書・進捗ログ
 
 | Date | Document | Change | Author |
 |------|----------|--------|--------|
+| 2026-07-08 | docs/INDEX.md | Electron Phase 2 開始、ステータス更新、AGENTS.md 参照修正 | Copilot |
 | 2026-07-06 | docs/INDEX.md | Electron フロントエンド計画セクション追加、Current/Architecture フォルダ構造追加 | Claude |
 | 2026-07-06 | (整理) | 古いログファイル 39個削除、未使用インポート警告 12個削減 | Claude |
 | 2026-06-25 | (Wave 5) | 本番環境完全完成・稼働開始 (229/229 tests) | Team |
