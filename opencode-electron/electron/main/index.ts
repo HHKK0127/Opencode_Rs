@@ -1,8 +1,9 @@
-﻿import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+﻿import { app, BrowserWindow, ipcMain, dialog, Menu, globalShortcut } from 'electron';
 import path from 'path';
 import log from 'electron-log';
 import Store from 'electron-store';
 import 'dotenv/config';
+import { createAppMenu, registerMenuIpc } from './menu';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const ENCRYPTION_KEY = process.env.OPENCODE_ENCRYPTION_KEY;
@@ -95,8 +96,8 @@ const createWindow = (): void => {
     console.error('[Main] Failed to load:', errorCode, errorDescription);
   });
 
-  mainWindow.webContents.on('crashed', () => {
-    console.error('[Main] Renderer process crashed');
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[Main] Renderer process gone:', details.reason);
   });
 
   mainWindow.once('ready-to-show', () => {
@@ -135,8 +136,23 @@ process.on('uncaughtException', (error) => {
 
 app.whenReady().then(() => {
   initializeStore();
+  registerMenuIpc();
   createWindow();
-  
+
+  const menu = createAppMenu();
+  Menu.setApplicationMenu(menu);
+
+  // ショートカット登録: メニューの accelerator だけで動作するが、
+  // globalShortcut はウィンドウにフォーカスがない時も機能する
+  app.on('browser-window-focus', () => {
+    // Electron 標準の accelerator で十分なので globalShortcut は未使用
+    // (将来的に system-wide ショートカットが必要ならここに追加)
+  });
+
+  app.on('browser-window-blur', () => {
+    globalShortcut.unregisterAll();
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();

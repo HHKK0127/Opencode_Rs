@@ -1,4 +1,4 @@
-﻿import { authState, authActions } from '../store/auth';
+import { authState, authActions } from '../store/auth';
 import type { 
   ApiResponse,
   LoginData,
