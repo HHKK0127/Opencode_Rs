@@ -17,7 +17,7 @@ OpenCode_Rs is a project to incrementally migrate the large-scale TypeScript app
 | **opencode_poc** (API Server) | Rust (Actix-web) | ✅ Wave 5 Complete — Production Ready |
 | **opencode-core** (Desktop Server) | Rust (Actix-web) | ✅ V2 API Phase 1 Complete |
 | **opencode-desktop** (Web Frontend) | React 19 + TypeScript | ⏳ Legacy (統合予定) |
-| **opencode-electron** (Desktop App) | SolidJS + Electron | ✅ Phase 1 Complete — Phase 2 進行中 |
+| **opencode-electron** (Desktop App) | SolidJS + Electron | ✅ Phase 2 Complete — Phase 3 進行中 |
 
 ---
 
@@ -62,9 +62,9 @@ OpenCode_Rs/
 |-------|--------|-------------|
 | Phase 0 | ✅ Done | セキュリティ修正・技術スタック確定 |
 | Phase 1 | ✅ Done | Electron 起動確認 (Vite 8.1 + SolidJS) |
-| Phase 2 | 🔄 In Progress | 認証画面 UI + バックエンド接続 |
-| Phase 3 | ⏳ Pending | ファイルエクスプローラー + コードエディタ |
-| Phase 4-7 | ⏳ Pending | メニュー、テスト、リリース |
+| Phase 2 | ✅ Done | 認証画面 UI + ログイン/ログアウト + JWT 永続化 |
+| Phase 3 | 🔄 In Progress | ダッシュボード + ファイルブラウザ |
+| Phase 4-7 | ⏳ Pending | エディタ、テスト、リリース |
 
 ### 起動方法 / How to Run
 
@@ -75,7 +75,7 @@ npm run dev
 # → Electron ウィンドウ起動 (http://localhost:5173)
 ```
 
-> **Note**: Development is centered on the `C:` drive (`C:\Drive\Cargo\OpenCode_Rs`). The `G:` drive is a Google Drive sync backup.
+> **Note**: Repository is now located at `G:\マイドライブ\Cargo\OpenCode_Rs`. Git operations should be done from this path.
 
 ---
 
@@ -161,8 +161,8 @@ gantt
     axisFormat  %m/%d
 
     section 🖥️ Electron Desktop (Main)
-    Phase 2: 認証画面                           :active, 2026-07-08, 5d
-    Phase 3: ダッシュボード                     :2026-07-14, 7d
+    Phase 2: 認証画面                           :done, 2026-07-08, 5d
+    Phase 3: ダッシュボード                     :active, 2026-07-14, 7d
     Phase 4: エディタ (Monaco)                  :2026-07-22, 8d
     Phase 5: Electron 機能                      :2026-08-01, 7d
     Phase 6: テスト・品質                        :2026-08-09, 7d
@@ -187,8 +187,8 @@ Electron + SolidJS で OpenCode デスクトップクライアントを構築。
 |:-----:|---------------------------|:----------:|:----:|
 | 0 | セキュリティ修正済み基盤 / Scaffold | ~Jul 03 | ✅ Done |
 | 1 | Electron 起動確認 / Boot & Verify | ~Jul 08 | ✅ Done |
-| **2** | **認証画面 / Login + JWT** | **Jul 08-13** | **🔄 Active** |
-| 3 | ダッシュボード / Dashboard + File Browser | Jul 14-21 | ⏳ |
+| **2** | **認証画面 / Login + JWT** | **Jul 08-13** | **✅ Done** |
+| **3** | **ダッシュボード / Dashboard + File Browser** | **Jul 14-21** | **🔄 Active** |
 | 4 | コードエディタ / Monaco Editor + Tabs | Jul 22-31 | ⏳ |
 | 5 | Electron機能 / Menu + Tray + Auto-update | Aug 01-07 | ⏳ |
 | 6 | テスト・品質 / Vitest + Playwright | Aug 08-15 | ⏳ |
@@ -282,14 +282,11 @@ kubectl port-forward -n opencode service/opencode-api-lb 8090:80
 
 ---
 
-## 🗂️ データ同期 / Data Sync
+## 🗂️ リポジトリ場所 / Repository Location
 
-**C: ドライブ (一次)** → **G: ドライブ (Google Drive バックアップ)**
+**G: ドライブ** (`G:\マイドライブ\Cargo\OpenCode_Rs`) が現在のメイン作業ディレクトリです。
 
-```bash
-# G: ドライブへ同期 (node_modules 除外)
-robocopy C:\Drive\Cargo\OpenCode_Rs G:\マイドライブ\Cargo\OpenCode_Rs /MIR /XD node_modules .git vendor .tmp.driveupload target
-```
+The repository is now located at `G:\マイドライブ\Cargo\OpenCode_Rs`.
 
 ---
 
