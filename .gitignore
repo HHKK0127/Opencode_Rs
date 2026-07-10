@@ -58,3 +58,16 @@ node_modules/
 
 # Tauri build artifacts
 opencode-desktop/src-tauri/target/
+
+.tmp.drivedownload
+
+server.pid
+
+backend_error.log
+backend_out.log
+backend.log
+
+vendor-new
+
+# Renamed to AGENTS.md
+CLAUDE.md
