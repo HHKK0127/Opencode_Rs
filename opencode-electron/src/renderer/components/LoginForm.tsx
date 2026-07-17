@@ -2,6 +2,8 @@ import { Show, createSignal } from 'solid-js';
 import { authState, authActions } from '../store/auth';
 import { api } from '../services/api';
 
+const testBypassEnabled = import.meta.env.DEV || import.meta.env.VITE_ALLOW_TEST_LOGIN_BYPASS === 'true';
+
 function LoginForm() {
   const [username, setUsername] = createSignal('');
   const [password, setPassword] = createSignal('');
@@ -37,6 +39,16 @@ function LoginForm() {
       const message = error instanceof Error ? error.message : 'Connection failed';
       authActions.setError(message);
     }
+  };
+
+  const handleTestBypass = async () => {
+    authActions.loginForTesting();
+    await window.electronAPI.store.set('token', 'test-bypass-token');
+    await window.electronAPI.store.delete('refreshToken');
+    await window.electronAPI.store.set('user', {
+      id: 'test-user',
+      username: 'testuser'
+    });
   };
 
   return (
@@ -175,6 +187,24 @@ function LoginForm() {
           >
             Create new account
           </button>
+
+          <Show when={testBypassEnabled}>
+            <button
+              type="button"
+              onClick={handleTestBypass}
+              disabled={authState.isLoading}
+              style={{
+                width: '100%', padding: '0.8rem',
+                background: 'none',
+                border: '1px dashed rgba(120, 200, 255, 0.45)',
+                'border-radius': '8px', color: '#8fd8ff',
+                'font-size': '0.85rem', cursor: 'pointer',
+                'margin-top': '0.75rem'
+              }}
+            >
+              Skip login (test mode)
+            </button>
+          </Show>
         </form>
 
         <div style={{

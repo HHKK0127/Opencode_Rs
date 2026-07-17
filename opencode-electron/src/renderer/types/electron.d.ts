@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL: string;
+  readonly VITE_ALLOW_TEST_LOGIN_BYPASS?: string;
 }
 
 interface ImportMeta {

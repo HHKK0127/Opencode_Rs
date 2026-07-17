@@ -1,0 +1,31 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'file_item.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+FileItem _$FileItemFromJson(Map<String, dynamic> json) => FileItem(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      path: json['path'] as String,
+      size: (json['size'] as num).toInt(),
+      mimeType: json['mimeType'] as String?,
+      createdAt: json['createdAt'] == null
+          ? null
+          : DateTime.parse(json['createdAt'] as String),
+      updatedAt: json['updatedAt'] == null
+          ? null
+          : DateTime.parse(json['updatedAt'] as String),
+    );
+
+Map<String, dynamic> _$FileItemToJson(FileItem instance) => <String, dynamic>{
+      'id': instance.id,
+      'name': instance.name,
+      'path': instance.path,
+      'size': instance.size,
+      'mimeType': instance.mimeType,
+      'createdAt': instance.createdAt?.toIso8601String(),
+      'updatedAt': instance.updatedAt?.toIso8601String(),
+    };

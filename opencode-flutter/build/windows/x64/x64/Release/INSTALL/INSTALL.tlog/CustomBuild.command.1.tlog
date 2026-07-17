@@ -1,0 +1,10 @@
+^C:\DRIVE\CARGO\OPENCODE_RS\OPENCODE-FLUTTER\BUILD\WINDOWS\X64\CMAKEFILES\3354AE27D7C3E7F53C3F86185A7D520A\INSTALL_FORCE.RULE
+setlocal
+cd .
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

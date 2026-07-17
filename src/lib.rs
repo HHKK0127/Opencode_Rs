@@ -21,3 +21,4 @@ pub mod health_check_integration; // Wave 5 Day 24: Health check + Graceful shut
 pub mod structured_logging;       // Wave 5 Day 24: Structured logging with tracing
 pub mod event_persistence;        // Wave 5 Day 24: Event persistence with Redis
 pub mod startup;                  // Wave 6: Startup validation & initialization
+pub mod tui;                      // Wave 7: TUI compositor framework

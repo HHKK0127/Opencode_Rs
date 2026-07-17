@@ -1,0 +1,1 @@
+ C:\\Drive\\Cargo\\OpenCode_Rs\\opencode-flutter\\.dart_tool\\flutter_build\\7b5f037b90e287dd0ca9414efe7ec214\\native_assets.json: 

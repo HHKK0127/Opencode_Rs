@@ -1,0 +1,154 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-07-14T05:29:53Z",
+  "entries": [
+    {
+      "id": "20260714-001-repo-path",
+      "timestamp": "2026-07-14T03:26:00Z",
+      "category": "configuration",
+      "priority": "high",
+      "content": "Primary repository working path is C:\\Drive\\Cargo\\OpenCode_Rs.",
+      "tags": [
+        "path",
+        "workspace",
+        "configuration"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-002-ratatui-baseline",
+      "timestamp": "2026-07-14T03:26:00Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "Added Ratatui TUI binary as src/bin/opencode_tui.rs with Dashboard, Files, Messages, and Help screens.",
+      "tags": [
+        "tui",
+        "ratatui",
+        "rust"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-003-message-integration",
+      "timestamp": "2026-07-14T03:26:00Z",
+      "category": "reference",
+      "priority": "high",
+      "content": "TUI message panel uses OpenCode Core V2 API endpoints: POST /v2/session, POST /v2/session/{id}/prompt, GET /v2/session/{id}/message.",
+      "tags": [
+        "api",
+        "session",
+        "prompt",
+        "message"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-004-readme-sync",
+      "timestamp": "2026-07-14T03:26:00Z",
+      "category": "decision",
+      "priority": "medium",
+      "content": "README path references were updated to C:\\Drive\\Cargo\\OpenCode_Rs and TUI operation notes were refreshed.",
+      "tags": [
+        "readme",
+        "documentation"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-005-ui-split-decision",
+      "timestamp": "2026-07-14T05:29:53Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "UI strategy was split into two independent fronts: Flutter GUI (opencode-flutter) and Ratatui TUI (src/bin/opencode_tui.rs), both sharing existing backend APIs.",
+      "tags": [
+        "ui",
+        "flutter",
+        "ratatui",
+        "architecture"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-006-flutter-v1-features",
+      "timestamp": "2026-07-14T05:29:53Z",
+      "category": "reference",
+      "priority": "high",
+      "content": "Flutter v1 implements login, test bypass, MainShell (Overview/Files/Settings), backend health check, paginated file list, local filename filter, and logout.",
+      "tags": [
+        "flutter",
+        "features",
+        "overview",
+        "files",
+        "settings"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-007-flutter-windows-fixes",
+      "timestamp": "2026-07-14T05:29:53Z",
+      "category": "configuration",
+      "priority": "high",
+      "content": "Flutter Windows run path was fixed by adding missing windows scaffold files, updating CMake flags (/FS), and resolving manifest/resource conflicts in runner build settings.",
+      "tags": [
+        "flutter",
+        "windows",
+        "cmake",
+        "build"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-008-backend-capabilities-summary",
+      "timestamp": "2026-07-14T05:29:53Z",
+      "category": "reference",
+      "priority": "high",
+      "content": "Backend capabilities were confirmed in two stacks: OpenCode_Rs API (auth, files, upload, sessions, admin/metrics) and opencode-core API (v2 session/prompt/message, SSE events, provider/find/browser).",
+      "tags": [
+        "backend",
+        "api",
+        "sessions",
+        "prompt",
+        "events"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260714-009-flutter-launcher-complete",
+      "timestamp": "2026-07-14T16:30:00Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "Flutter integrated launcher completed: BLoC architecture (AuthBloc + LauncherBloc), Material 3 UI with 3 tabs (Launcher/AI Terminal/Settings), Dio HTTP client, Hive local storage, json_serializable code generation. Windows build successful. All 13 flutter tasks done.",
+      "tags": [
+        "flutter",
+        "bloc",
+        "launcher",
+        "windows",
+        "complete"
+      ],
+      "compressed": false
+    },
+    {
+      "id": "20260717-010-brace-imbalance-fixed",
+      "timestamp": "2026-07-17T13:42:00Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "Brace imbalance in opencode_tui.rs resolved: fn run_app was missing its closing } due to excess braces at lines 1973-1979 after the Dashboard match arm. Fixed by restoring correct brace structure (863 { = 863 }). cargo check now passes with 0 errors.",
+      "tags": ["tui", "rust", "bugfix", "compilation", "opencode_tui.rs"],
+      "compressed": false
+    },
+    {
+      "id": "20260717-011-render-with-context-mut",
+      "timestamp": "2026-07-17T13:42:00Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "Component trait's render_with_context signature changed from `ctx: &dyn Any` to `ctx: &mut dyn Any` to allow render_chat (and any layer) mutable access to App for cursor management, markdown stream commits, and render timing. Compositor::render_with_context and all 4 layer implementations updated. Borrow conflicts resolved via raw-pointer split borrows.",
+      "tags": ["tui", "component", "trait", "refactoring", "borrow-checker"],
+      "compressed": false
+    }
+  ],
+  "metadata": {
+    "totalEntries": 11,
+    "compressedCount": 0,
+    "sessionCount": 2
+  }
+}

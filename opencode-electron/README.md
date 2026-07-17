@@ -403,6 +403,19 @@ server: {
 }
 ```
 
+### ログインで `Failed to fetch` が出る
+
+バックエンド API (`http://localhost:8080`) が起動していない場合に発生します。
+
+- API を使う場合: OpenCode_Rs バックエンドを先に起動する
+- UI テストだけ先に進める場合: ログイン画面の **`Skip login (test mode)`** を利用する
+
+テストスキップは開発環境 (`npm run dev`) で有効です。明示的に切り替える場合は `.env` に以下を設定します。
+
+```bash
+VITE_ALLOW_TEST_LOGIN_BYPASS=true
+```
+
 ### TypeScript エラー
 
 ```bash

@@ -18,6 +18,7 @@ OpenCode_Rs is a project to incrementally migrate the large-scale TypeScript app
 | **opencode-core** (Desktop Server) | Rust (Actix-web) | ✅ V2 API Phase 1 Complete |
 | **opencode-desktop** (Web Frontend) | React 19 + TypeScript | ⏳ Legacy (統合予定) |
 | **opencode-electron** (Desktop App) | SolidJS + Electron | ✅ Phase 2 Complete — Phase 3 進行中 |
+| **opencode-flutter** (Desktop App) | Flutter (Dart) | 🆕 Initial scaffold (Login + Files) |
 
 ---
 
@@ -40,6 +41,7 @@ OpenCode_Rs/
 │
 ├── opencode-desktop/       # Web フロントエンド (React, legacy)
 ├── opencode-electron/      # デスクトップアプリ (SolidJS + Electron) 🆕
+├── opencode-flutter/       # デスクトップアプリ (Flutter GUI) 🆕
 │
 ├── config/                 # TOML 設定ファイル
 ├── deploy/                 # デプロイスクリプト
@@ -75,7 +77,45 @@ npm run dev
 # → Electron ウィンドウ起動 (http://localhost:5173)
 ```
 
-> **Note**: Repository is now located at `G:\マイドライブ\Cargo\OpenCode_Rs`. Git operations should be done from this path.
+> **Note**: Repository is now located at `C:\Drive\Cargo\OpenCode_Rs`. Git operations should be done from this path.
+
+---
+
+## 🖥️ Ratatui TUI (Rust) / Terminal UI
+
+`opencode_poc` に Ratatui ベースの TUI バイナリを追加しました。
+
+```bash
+cargo run --bin opencode_tui
+```
+
+主な操作:
+- `q`: 終了
+- `Tab` / `←` / `→`: 画面切替
+- `j` / `k`: ファイル選択移動
+- `r`: `uploads/` / message の再読み込み
+- Messages 画面で `Enter`: プロンプト送信
+
+`OPENCODE_CORE_URL` 環境変数で接続先を変更可能です（既定: `http://127.0.0.1:4096`）。
+
+---
+
+## 📱 Flutter UI (Desktop GUI)
+
+Flutter 版は Ratatui TUI と分離して運用します。
+
+```bash
+cd opencode-flutter
+flutter pub get
+flutter run -d windows
+```
+
+実装済み:
+- Login (`POST /api/v1/auth/login`)
+- Test mode bypass
+- Files list (`GET /api/v1/files`)
+
+詳細: `opencode-flutter/README.md`
 
 ---
 
@@ -284,9 +324,9 @@ kubectl port-forward -n opencode service/opencode-api-lb 8090:80
 
 ## 🗂️ リポジトリ場所 / Repository Location
 
-**G: ドライブ** (`G:\マイドライブ\Cargo\OpenCode_Rs`) が現在のメイン作業ディレクトリです。
+**C: ドライブ** (`C:\Drive\Cargo\OpenCode_Rs`) が現在のメイン作業ディレクトリです。
 
-The repository is now located at `G:\マイドライブ\Cargo\OpenCode_Rs`.
+The repository is now located at `C:\Drive\Cargo\OpenCode_Rs`.
 
 ---
 

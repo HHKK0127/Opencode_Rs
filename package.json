@@ -1,0 +1,30 @@
+{
+  "name": "opencode_rs",
+  "version": "1.0.0",
+  "description": "**Rust Actix-web バックエンド + React フロントエンド統合**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HHKK0127/Opencode_Rs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/HHKK0127/Opencode_Rs/issues"
+  },
+  "homepage": "https://github.com/HHKK0127/Opencode_Rs#readme",
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^6.0.3"
+  }
+}

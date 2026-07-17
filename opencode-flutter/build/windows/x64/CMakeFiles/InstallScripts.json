@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Drive/Cargo/OpenCode_Rs/opencode-flutter/build/windows/x64/cmake_install.cmake",
+		"C:/Drive/Cargo/OpenCode_Rs/opencode-flutter/build/windows/x64/flutter/cmake_install.cmake",
+		"C:/Drive/Cargo/OpenCode_Rs/opencode-flutter/build/windows/x64/runner/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
