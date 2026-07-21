@@ -19,6 +19,10 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY config ./config
 COPY migrations ./migrations
+COPY opencode-core ./opencode-core
+COPY opencode-llm ./opencode-llm
+COPY benches ./benches
+COPY tests ./tests
 
 RUN cargo build --release
 
