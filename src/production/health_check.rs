@@ -60,17 +60,13 @@ impl HealthChecker {
 
     /// Register a component for health checks
     pub fn register_component(&mut self, name: String) {
-        self.components.insert(name.clone(), ComponentHealth::new(name.clone()));
+        self.components
+            .insert(name.clone(), ComponentHealth::new(name.clone()));
         debug!("Component registered: {}", name);
     }
 
     /// Update component health
-    pub fn update_component_health(
-        &mut self,
-        name: &str,
-        status: HealthStatus,
-        latency_ms: f64,
-    ) {
+    pub fn update_component_health(&mut self, name: &str, status: HealthStatus, latency_ms: f64) {
         if let Some(component) = self.components.get_mut(name) {
             component.status = status.clone();
             component.latency_ms = latency_ms;
@@ -126,7 +122,10 @@ impl HealthChecker {
         for (name, health) in &self.components {
             report.push_str(&format!(
                 "  {}: {} (latency: {:.2}ms, errors: {})\n",
-                name, health.status.as_str(), health.latency_ms, health.error_count
+                name,
+                health.status.as_str(),
+                health.latency_ms,
+                health.error_count
             ));
         }
 

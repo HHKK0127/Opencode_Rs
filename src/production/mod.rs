@@ -1,9 +1,9 @@
-pub mod health_check;
 pub mod deployment_config;
-pub mod monitoring;
 pub mod failover;
+pub mod health_check;
+pub mod monitoring;
 
-pub use health_check::{HealthChecker, HealthStatus};
-pub use deployment_config::{ProductionConfig, DeploymentEnvironment};
-pub use monitoring::{MetricsCollector, AlertRule};
+pub use deployment_config::{DeploymentEnvironment, ProductionConfig};
 pub use failover::{FailoverManager, ReplicaStatus};
+pub use health_check::{HealthChecker, HealthStatus};
+pub use monitoring::{AlertRule, MetricsCollector};

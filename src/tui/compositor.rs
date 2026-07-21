@@ -14,10 +14,10 @@
 
 use std::any::Any;
 
-use ratatui::Frame;
+use crossterm::event::KeyEvent;
 use ratatui::layout::Rect;
 use ratatui::prelude::Position;
-use crossterm::event::KeyEvent;
+use ratatui::Frame;
 
 use super::component::{Component, ComponentKind, HandleResult, LayerId};
 
@@ -92,7 +92,7 @@ impl Compositor {
             }
             let top_kind = self.layers.last().map(|l| l.kind());
             // Check if this is the target
-            if top_kind.map(|k| kind_to_layer(k)) == Some(target) {
+            if top_kind.map(kind_to_layer) == Some(target) {
                 self.layers.pop();
                 if let Some(top) = self.layers.last_mut() {
                     top.on_activate();
@@ -124,7 +124,9 @@ impl Compositor {
 
     /// The current / topmost layer (mutable).
     pub fn current_mut(&mut self) -> Option<&mut dyn Component> {
-        self.layers.last_mut().map(|b| b.as_mut() as &mut dyn Component)
+        self.layers
+            .last_mut()
+            .map(|b| b.as_mut() as &mut dyn Component)
     }
 
     /// Number of layers in the stack.
@@ -178,7 +180,11 @@ impl Compositor {
     /// Dispatch a key event with application context.
     /// Just like `handle_event`, but passes the context to layers that
     /// implement `handle_event_with_context`.
-    pub fn handle_event_with_context(&mut self, event: &KeyEvent, ctx: &mut dyn Any) -> HandleResult {
+    pub fn handle_event_with_context(
+        &mut self,
+        event: &KeyEvent,
+        ctx: &mut dyn Any,
+    ) -> HandleResult {
         for layer in self.layers.iter_mut().rev() {
             let result = layer.handle_event_with_context(event, ctx);
             match result {
@@ -253,7 +259,7 @@ impl Compositor {
 
     /// Replace or push a layer. If a layer of the same kind exists, it is
     /// replaced at its current position. Otherwise, it is pushed on top.
-    pub fn replace_or_push(&mut self, mut layer: Box<dyn Component>) {
+    pub fn replace_or_push(&mut self, layer: Box<dyn Component>) {
         let kind = layer.kind();
         if let Some(pos) = self.layers.iter().position(|l| l.kind() == kind) {
             self.layers[pos] = layer;

@@ -1,6 +1,6 @@
-use actix_web::{HttpResponse, web};
-use serde::{Deserialize, Serialize};
+use actix_web::{web, HttpResponse};
 use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -52,11 +52,14 @@ pub async fn init_session(
         "created_at": now,
         "updated_at": now,
     });
-    store.write().insert(path.id.clone(), SessionData {
-        info: session.clone(),
-        v2_info: None,
-        messages: Vec::new(),
-    });
+    store.write().insert(
+        path.id.clone(),
+        SessionData {
+            info: session.clone(),
+            v2_info: None,
+            messages: Vec::new(),
+        },
+    );
     HttpResponse::Ok().json(SessionStatusResponse {
         status: "ok".to_string(),
         session,
@@ -101,9 +104,15 @@ pub async fn create_session_v2(
     bus: web::Data<crate::api::events::EventBus>,
 ) -> HttpResponse {
     let now = chrono::Utc::now().to_rfc3339();
-    let session_id = body.id.clone().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let session_id = body
+        .id
+        .clone()
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     let location = body.location.clone().unwrap_or(LocationRef {
-        directory: std::env::current_dir().unwrap_or_default().to_string_lossy().to_string(),
+        directory: std::env::current_dir()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
         workspace_id: None,
     });
 
@@ -131,16 +140,23 @@ pub async fn create_session_v2(
     };
 
     let info_json = serde_json::to_value(&v2_info).unwrap_or_default();
-    store.write().insert(session_id.clone(), SessionData {
-        info: info_json.clone(),
-        v2_info: Some(v2_info.clone()),
-        messages: Vec::new(),
-    });
+    store.write().insert(
+        session_id.clone(),
+        SessionData {
+            info: info_json.clone(),
+            v2_info: Some(v2_info.clone()),
+            messages: Vec::new(),
+        },
+    );
 
-    crate::api::events::emit_event(&bus, "session.created", serde_json::json!({
-        "sessionID": session_id,
-        "info": info_json,
-    }));
+    crate::api::events::emit_event(
+        &bus,
+        "session.created",
+        serde_json::json!({
+            "sessionID": session_id,
+            "info": info_json,
+        }),
+    );
 
     HttpResponse::Ok().json(serde_json::json!({ "data": v2_info }))
 }
@@ -169,22 +185,29 @@ pub async fn delete_session_v2(
 ) -> HttpResponse {
     let mut sessions = store.write();
     if sessions.remove(&path.id).is_some() {
-        crate::api::events::emit_event(&bus, "session.deleted", serde_json::json!({
-            "sessionID": path.id,
-        }));
+        crate::api::events::emit_event(
+            &bus,
+            "session.deleted",
+            serde_json::json!({
+                "sessionID": path.id,
+            }),
+        );
         HttpResponse::Ok().json(serde_json::json!({ "status": "deleted" }))
     } else {
         HttpResponse::NotFound().json(serde_json::json!({ "error": "session not found" }))
     }
 }
 
-pub async fn list_sessions_v2(
-    store: web::Data<SessionStore>,
-) -> HttpResponse {
+pub async fn list_sessions_v2(store: web::Data<SessionStore>) -> HttpResponse {
     let sessions = store.read();
-    let items: Vec<serde_json::Value> = sessions.values().filter_map(|s| {
-        s.v2_info.as_ref().map(|v2| serde_json::to_value(v2).unwrap_or_default())
-    }).collect();
+    let items: Vec<serde_json::Value> = sessions
+        .values()
+        .filter_map(|s| {
+            s.v2_info
+                .as_ref()
+                .map(|v2| serde_json::to_value(v2).unwrap_or_default())
+        })
+        .collect();
     drop(sessions);
     HttpResponse::Ok().json(serde_json::json!({ "data": items }))
 }

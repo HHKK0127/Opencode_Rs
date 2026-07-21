@@ -33,11 +33,7 @@ impl OpenAiCompatClient {
         let http = Client::builder()
             .timeout(std::time::Duration::from_millis(config.timeout_ms))
             .build()?;
-        Ok(Self {
-            http,
-            auth,
-            config,
-        })
+        Ok(Self { http, auth, config })
     }
 
     /// Construct a client from environment variables.
@@ -108,9 +104,9 @@ impl OpenAiCompatClient {
                         {
                             let payload = content
                                 .iter()
-                                .filter_map(|c| match c {
+                                .map(|c| match c {
                                     crate::types::ToolResultContentBlock::Text { text } => {
-                                        Some(text.clone())
+                                        text.clone()
                                     }
                                 })
                                 .collect::<Vec<_>>()
@@ -289,14 +285,14 @@ pub fn openai_response_to_message(value: &Value) -> MessageResponse {
 
     let usage = value
         .get("usage")
-        .and_then(|u| {
-            Some(crate::types::Usage {
-                input_tokens: u.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
-                output_tokens: u.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0)
-                    as u32,
-                cache_read_input_tokens: 0,
-                cache_creation_input_tokens: 0,
-            })
+        .map(|u| crate::types::Usage {
+            input_tokens: u.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
+            output_tokens: u
+                .get("completion_tokens")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as u32,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
         })
         .unwrap_or_default();
 

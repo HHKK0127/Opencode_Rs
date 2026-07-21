@@ -1,5 +1,6 @@
-use std::process::Command;
+#![allow(dead_code)]
 use log::info;
+use std::process::Command;
 
 /// sqlx-cli wrapper for migration management
 pub struct MigrationCli;
@@ -11,7 +12,7 @@ impl MigrationCli {
         info!("Creating migration: {}", name);
 
         let output = Command::new("sqlx")
-            .args(&["migrate", "add", "-r", name])
+            .args(["migrate", "add", "-r", name])
             .current_dir(".")
             .output()?;
 
@@ -30,7 +31,7 @@ impl MigrationCli {
         info!("Running migrations on {}", database_url);
 
         let output = Command::new("sqlx")
-            .args(&["migrate", "run", "--database-url", database_url])
+            .args(["migrate", "run", "--database-url", database_url])
             .output()?;
 
         if !output.status.success() {
@@ -49,7 +50,7 @@ impl MigrationCli {
         info!("Reverting last migration on {}", database_url);
 
         let output = Command::new("sqlx")
-            .args(&["migrate", "revert", "--database-url", database_url])
+            .args(["migrate", "revert", "--database-url", database_url])
             .output()?;
 
         if !output.status.success() {
@@ -68,7 +69,7 @@ impl MigrationCli {
         info!("Fetching migration info for {}", database_url);
 
         let output = Command::new("sqlx")
-            .args(&["migrate", "info", "--database-url", database_url])
+            .args(["migrate", "info", "--database-url", database_url])
             .output()?;
 
         if !output.status.success() {
@@ -84,7 +85,7 @@ impl MigrationCli {
         info!("Validating migrations for {}", database_url);
 
         let output = Command::new("sqlx")
-            .args(&["migrate", "info", "--database-url", database_url])
+            .args(["migrate", "info", "--database-url", database_url])
             .output()?;
 
         let info_output = String::from_utf8_lossy(&output.stdout);

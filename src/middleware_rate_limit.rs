@@ -1,12 +1,13 @@
+#![allow(dead_code)]
+use actix_web::dev::{Service, ServiceResponse, Transform};
+use actix_web::{dev::ServiceRequest, Error};
+use futures::future::{ok, LocalBoxFuture, Ready};
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use actix_web::{dev::ServiceRequest, Error};
-use actix_web::dev::{Service, Transform, ServiceResponse};
-use futures::future::{ok, Ready, LocalBoxFuture};
-use std::task::{Context, Poll};
 use tracing::warn;
 
 use crate::error::AppError;
@@ -50,7 +51,7 @@ impl RateLimiter {
     pub async fn check(&self, client_ip: IpAddr) -> Result<(), AppError> {
         let mut clients = self.clients.write().await;
         let now = Instant::now();
-        
+
         let state = clients.entry(client_ip).or_insert_with(|| ClientState {
             requests: Vec::new(),
             blocked_until: None,
@@ -59,21 +60,26 @@ impl RateLimiter {
         // ブロックチェック
         if let Some(until) = state.blocked_until {
             if now < until {
-                return Err(AppError::BadRequest("Rate limit exceeded. Try again later.".to_string()));
+                return Err(AppError::BadRequest(
+                    "Rate limit exceeded. Try again later.".to_string(),
+                ));
             }
             state.blocked_until = None;
         }
 
         // 古いリクエストを削除
-        state.requests.retain(|&t| now.duration_since(t) < self.config.window);
+        state
+            .requests
+            .retain(|&t| now.duration_since(t) < self.config.window);
 
         // レート制限チェック
         if state.requests.len() >= self.config.max_requests as usize {
             state.blocked_until = Some(now + self.config.block_duration);
             warn!("Rate limit exceeded for IP: {}", client_ip);
-            return Err(AppError::BadRequest(
-                format!("Rate limit exceeded. Blocked for {} seconds.", self.config.block_duration.as_secs())
-            ));
+            return Err(AppError::BadRequest(format!(
+                "Rate limit exceeded. Blocked for {} seconds.",
+                self.config.block_duration.as_secs()
+            )));
         }
 
         state.requests.push(now);
@@ -134,7 +140,9 @@ where
     }
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let client_ip = req.connection_info().realip_remote_addr()
+        let client_ip = req
+            .connection_info()
+            .realip_remote_addr()
             .and_then(|ip| ip.parse().ok())
             .unwrap_or(IpAddr::from([127, 0, 0, 1]));
 
@@ -144,7 +152,9 @@ where
         Box::pin(async move {
             if let Err(_e) = limiter.check(client_ip).await {
                 // Rate limit exceeded - return error as middleware error
-                return Err(actix_web::error::ErrorTooManyRequests("Rate limit exceeded"));
+                return Err(actix_web::error::ErrorTooManyRequests(
+                    "Rate limit exceeded",
+                ));
             }
             fut.await
         })

@@ -35,8 +35,12 @@ pub struct WriteFileTool;
 
 #[async_trait::async_trait]
 impl super::ToolRuntime for WriteFileTool {
-    fn name(&self) -> &str { NAME }
-    fn spec(&self) -> ToolSpec { spec() }
+    fn name(&self) -> &str {
+        NAME
+    }
+    fn spec(&self) -> ToolSpec {
+        spec()
+    }
 
     async fn execute(&self, args: Value, ctx: &ToolContext) -> Result<String, ToolError> {
         if !ctx.can_write {
@@ -56,6 +60,10 @@ impl super::ToolRuntime for WriteFileTool {
             fs::create_dir_all(parent).await.map_err(ToolError::Io)?;
         }
         fs::write(&path, content).await.map_err(ToolError::Io)?;
-        Ok(format!("wrote {} bytes to {}", content.len(), path.display()))
+        Ok(format!(
+            "wrote {} bytes to {}",
+            content.len(),
+            path.display()
+        ))
     }
 }

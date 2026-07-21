@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-07-14T05:29:53Z",
+  "lastUpdated": "2026-07-18T19:45:00Z",
   "entries": [
     {
       "id": "20260714-001-repo-path",
@@ -144,11 +144,56 @@
       "content": "Component trait's render_with_context signature changed from `ctx: &dyn Any` to `ctx: &mut dyn Any` to allow render_chat (and any layer) mutable access to App for cursor management, markdown stream commits, and render timing. Compositor::render_with_context and all 4 layer implementations updated. Borrow conflicts resolved via raw-pointer split borrows.",
       "tags": ["tui", "component", "trait", "refactoring", "borrow-checker"],
       "compressed": false
+    },
+    {
+      "id": "20260718-012-warp-patterns-complete",
+      "timestamp": "2026-07-18T19:10:00Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "Warp-inspired patterns全10種実装完了: Keymap matcher (Trie), InputClassifier, PositionCache, CompletionEngine, TaskQueue, View+Element, VimFSA, Plugin System, Toast Notification, Event Bubbling. App構造体にvim_fsa, plugin_manager, toast_manager統合済み。",
+      "tags": ["warp", "patterns", "architecture", "complete"],
+      "compressed": false
+    },
+    {
+      "id": "20260718-013-slash-rpc-theme-complete",
+      "timestamp": "2026-07-18T19:10:00Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "スラッシュコマンドRPC (SlashCommandDispatcher + SlashAction enum) とテーマシステム拡充 (10テーマ: dark, light, gruvbox-dark/light, solarized-dark/light, nord, catppuccin-mocha/latte, tokyo-night) 実装完了。",
+      "tags": ["slash-command", "theme", "rpc", "complete"],
+      "compressed": false
+    },
+    {
+      "id": "20260718-014-tasks-complete",
+      "timestamp": "2026-07-18T19:10:00Z",
+      "category": "decision",
+      "priority": "high",
+      "content": "全121タスク完了 (100%)。次のフェーズ: テスト作成・実行、ドキュメント整備、パフォーマンス最適化、リファクタリング(ファイル分割)。",
+      "tags": ["progress", "milestone", "complete"],
+      "compressed": false
+    },
+    {
+      "id": "20260718-015-sqlx-windows-issue",
+      "timestamp": "2026-07-18T19:10:00Z",
+      "category": "constraint",
+      "priority": "medium",
+      "content": "Windows MSVCでsqlx-macrosのリンクエラー(__chkstk_ms, __isnan)が発生。cargo clean -p sqlx-macros -p libsqlite3-sysで解消するが再発する可能性あり。コード変更と無関係な環境問題。",
+      "tags": ["build", "windows", "sqlx", "constraint"],
+      "compressed": false
+    },
+    {
+      "id": "20260718-016-docs-complete",
+      "timestamp": "2026-07-18T19:45:00Z",
+      "category": "decision",
+      "priority": "medium",
+      "content": "ドキュメント整備完了: README.md更新、API仕様書、ユーザーガイド、パフォーマンスドキュメント、モジュール構成ドキュメントを作成。モジュール分割計画（11モジュール）策定済み。",
+      "tags": ["documentation", "refactoring", "complete"],
+      "compressed": false
     }
   ],
   "metadata": {
-    "totalEntries": 11,
+    "totalEntries": 17,
     "compressedCount": 0,
-    "sessionCount": 2
+    "sessionCount": 3
   }
 }

@@ -1,6 +1,7 @@
-/// Structured logging integration with tracing
-use tracing::{info, warn, error, debug};
+#![allow(dead_code)]
 use std::time::Instant;
+/// Structured logging integration with tracing
+use tracing::{debug, error, info, warn};
 
 /// Structured logging context
 pub struct LogContext {
@@ -117,13 +118,7 @@ impl LogContext {
     }
 
     /// Log cache operation
-    pub fn log_cache_operation(
-        &self,
-        operation: &str,
-        key: &str,
-        hit: bool,
-        elapsed_ms: u64,
-    ) {
+    pub fn log_cache_operation(&self, operation: &str, key: &str, hit: bool, elapsed_ms: u64) {
         debug!(
             request_id = %self.request_id,
             operation = operation,
@@ -205,20 +200,12 @@ impl HealthEventLogger {
 
     /// Log connection change
     pub fn log_connection_change(event: &str, count: usize) {
-        debug!(
-            event = event,
-            connection_count = count,
-            "Connection event"
-        );
+        debug!(event = event, connection_count = count, "Connection event");
     }
 
     /// Log shutdown event
     pub fn log_shutdown_event(phase: &str, message: &str) {
-        info!(
-            phase = phase,
-            message = message,
-            "Shutdown event"
-        );
+        info!(phase = phase, message = message, "Shutdown event");
     }
 
     /// Log alert triggered
@@ -245,8 +232,7 @@ mod tests {
 
     #[test]
     fn test_log_context_with_user() {
-        let ctx = LogContext::new("api".to_string())
-            .with_user("user123".to_string());
+        let ctx = LogContext::new("api".to_string()).with_user("user123".to_string());
         assert_eq!(ctx.user_id, Some("user123".to_string()));
     }
 
@@ -262,8 +248,7 @@ mod tests {
     #[test]
     fn test_performance_timer() {
         let timer = PerformanceTimer::new("test_op", "test_context");
-        let elapsed = timer.log();
-        assert!(elapsed >= 0);
+        let _elapsed = timer.log();
     }
 
     #[test]
@@ -282,7 +267,11 @@ mod tests {
         ctx.log_request_start("POST", "/api/users");
         ctx.log_request_complete("POST", "/api/users", 201, 45);
         ctx.log_operation("insert_user", "success", 25);
-        ctx.log_error("DB_ERR_001", "Connection failed", Some("Connection timeout"));
+        ctx.log_error(
+            "DB_ERR_001",
+            "Connection failed",
+            Some("Connection timeout"),
+        );
         ctx.log_database_operation("INSERT", "users", 1, 15);
         ctx.log_cache_operation("SET", "user:123", false, 5);
     }

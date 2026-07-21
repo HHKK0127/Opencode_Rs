@@ -93,9 +93,10 @@ impl AuthSource {
     /// Returns the bearer token portion if any.
     pub fn bearer_token(&self) -> Option<&str> {
         match self {
-            Self::BearerToken(t) | Self::ApiKeyAndBearer { bearer_token: t, .. } => {
-                Some(t.as_str())
-            }
+            Self::BearerToken(t)
+            | Self::ApiKeyAndBearer {
+                bearer_token: t, ..
+            } => Some(t.as_str()),
             _ => None,
         }
     }

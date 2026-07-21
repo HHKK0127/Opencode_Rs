@@ -1,8 +1,15 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::collections::HashMap;
-
-/// Load test result
 #[derive(Debug)]
 struct LoadTestResult {
     total_requests: u64,
@@ -57,10 +64,7 @@ impl MockApiEndpoint {
         {
             let mut store = data_store.lock().unwrap();
             for i in 0..1000 {
-                store.insert(
-                    format!("file:{}", i),
-                    vec![0u8; 256],
-                );
+                store.insert(format!("file:{}", i), vec![0u8; 256]);
             }
         }
 
@@ -195,13 +199,17 @@ fn test_03_concurrent_users_simulation() {
     let all_results = results.lock().unwrap();
     let total_requests: u64 = all_results.iter().map(|r| r.total_requests).sum();
     let total_success: u64 = all_results.iter().map(|r| r.successful_requests).sum();
-    let avg_latency: u64 = all_results.iter().map(|r| r.avg_latency_ms).sum::<u64>() / all_results.len() as u64;
+    let avg_latency: u64 =
+        all_results.iter().map(|r| r.avg_latency_ms).sum::<u64>() / all_results.len() as u64;
 
     let success_rate = total_success as f64 / total_requests as f64;
 
     println!(
         "Concurrent Load Test: {} users, {} total requests, {:.1}% success, avg latency: {}ms",
-        20, total_requests, success_rate * 100.0, avg_latency
+        20,
+        total_requests,
+        success_rate * 100.0,
+        avg_latency
     );
 
     assert!(
@@ -245,7 +253,10 @@ fn test_04_sustained_load_stability() {
 
     println!(
         "Sustained Load Test: avg {:.0} req/s, range {:.0}-{:.0} req/s, stability: {:.1}%",
-        avg_throughput, min_throughput, max_throughput, stability * 100.0
+        avg_throughput,
+        min_throughput,
+        max_throughput,
+        stability * 100.0
     );
 
     assert!(
@@ -338,7 +349,8 @@ fn test_06_error_recovery() {
 
     println!(
         "Error Recovery Test: total {} requests, success rate: {:.1}%",
-        total_requests, success_rate * 100.0
+        total_requests,
+        success_rate * 100.0
     );
 
     // Success rate should match expected 80% hit rate

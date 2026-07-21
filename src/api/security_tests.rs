@@ -1,19 +1,20 @@
 #[cfg(test)]
+#[cfg(feature = "postgres")]
 mod security_tests {
     use crate::app_state::AppState;
     use crate::config::Settings;
+    use crate::error::AppError;
     use crate::storage::LocalStorageBackend;
     use crate::validation::FileValidator;
-    use crate::error::AppError;
     use std::sync::Arc;
 
     async fn create_test_app_state() -> AppState {
         let settings = Settings::default();
-        let db_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:postgres@localhost:5432/opencode_test".to_string()
+        });
 
-        let db = sqlx::postgres::PgPool::connect_lazy(&db_url)
-            .expect("Failed to build lazy pool");
+        let db = sqlx::postgres::PgPool::connect_lazy(&db_url).expect("Failed to build lazy pool");
 
         let storage = Arc::new(LocalStorageBackend::new("./uploads"));
         AppState::new(settings, db, storage, None)
@@ -38,7 +39,9 @@ mod security_tests {
     fn test_validator_blocks_path_traversal() {
         let validator = FileValidator::new_default();
         assert!(validator.validate_filename("../../../etc/passwd").is_err());
-        assert!(validator.validate_filename("..\\..\\windows\\system32").is_err());
+        assert!(validator
+            .validate_filename("..\\..\\windows\\system32")
+            .is_err());
     }
 
     #[test]

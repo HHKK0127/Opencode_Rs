@@ -170,6 +170,7 @@ struct LoadedPlugin {
     plugin: Arc<dyn Plugin>,
     config: PluginConfig,
     descriptor: PluginDescriptor,
+    #[allow(dead_code)]
     initialized: bool,
 }
 
@@ -211,12 +212,9 @@ impl PluginManager {
         plugin.initialize(&config).await?;
 
         // Register hooks.
-                for hook in &desc.hooks {
-                    self.hooks
-                        .entry(*hook)
-                        .or_insert_with(Vec::new)
-                        .push(name.clone());
-                }
+        for hook in &desc.hooks {
+            self.hooks.entry(*hook).or_default().push(name.clone());
+        }
 
         self.plugins.insert(
             name,
@@ -269,11 +267,7 @@ impl PluginManager {
     }
 
     /// Update a plugin's config.
-    pub async fn update_config(
-        &mut self,
-        name: &str,
-        config: PluginConfig,
-    ) -> PluginResult<()> {
+    pub async fn update_config(&mut self, name: &str, config: PluginConfig) -> PluginResult<()> {
         let loaded = self
             .plugins
             .get_mut(name)
@@ -485,10 +479,14 @@ mod tests {
                 Ok(())
             }
             fn tools(&self) -> Vec<(ToolSpec, ToolExecutor)> {
-                let spec = ToolSpec::new("test_tool", "A test tool", serde_json::json!({
-                    "type": "object",
-                    "properties": { "input": { "type": "string" } }
-                }));
+                let spec = ToolSpec::new(
+                    "test_tool",
+                    "A test tool",
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": { "input": { "type": "string" } }
+                    }),
+                );
                 let executor: ToolExecutor = Arc::new(crate::tools::bash::BashTool);
                 vec![(spec, executor)]
             }

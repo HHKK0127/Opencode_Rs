@@ -3,7 +3,7 @@ use std::path::{Component, Path, PathBuf};
 
 pub fn configure_frontend(cfg: &mut web::ServiceConfig, frontend_dir: PathBuf) {
     cfg.app_data(web::Data::new(FrontendState { frontend_dir }))
-       .service(serve_frontend);
+        .service(serve_frontend);
 }
 
 #[derive(Clone)]
@@ -53,9 +53,7 @@ async fn serve_file(path: &Path) -> HttpResponse {
     match tokio::fs::read(path).await {
         Ok(bytes) => {
             let content_type = guess_content_type(path);
-            HttpResponse::Ok()
-                .content_type(content_type)
-                .body(bytes)
+            HttpResponse::Ok().content_type(content_type).body(bytes)
         }
         Err(_) => HttpResponse::InternalServerError().body("failed to read file"),
     }

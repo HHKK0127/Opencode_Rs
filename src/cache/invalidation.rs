@@ -1,4 +1,5 @@
-use crate::cache::{RedisCache, CacheResult};
+#![allow(dead_code)]
+use crate::cache::{CacheResult, RedisCache};
 use tracing::{debug, info};
 
 /// Cache invalidation patterns for different cache types
@@ -68,12 +69,18 @@ impl CacheInvalidationManager {
 
     /// Invalidate by pattern (file:*, user:*, session:*, etc.)
     pub async fn invalidate_pattern(&self, pattern: &InvalidationPattern) -> CacheResult<()> {
-        info!("Invalidating pattern: {} ({})", pattern.pattern, pattern.description);
+        info!(
+            "Invalidating pattern: {} ({})",
+            pattern.pattern, pattern.description
+        );
 
         // Get all keys matching pattern
-        let keys: Vec<String> = self.cache.get_info().await
+        let keys: Vec<String> = self
+            .cache
+            .get_info()
+            .await
             .ok()
-            .and_then(|_| Some(vec![])) // In production, use SCAN command
+            .map(|_| vec![]) // In production, use SCAN command
             .unwrap_or_default();
 
         // Delete matching keys
@@ -101,7 +108,10 @@ impl CacheInvalidationManager {
     pub async fn invalidate_on_file_delete(&self, file_id: &str) -> CacheResult<()> {
         info!("Invalidating caches after file delete: {}", file_id);
 
-        self.cache.delete(&format!("file:metadata:{}", file_id)).await.ok();
+        self.cache
+            .delete(&format!("file:metadata:{}", file_id))
+            .await
+            .ok();
         self.cache.delete("files:list:*").await.ok();
         self.cache.delete("files:search:*").await.ok();
         self.cache.delete("files:stats").await.ok();
@@ -132,8 +142,7 @@ impl CacheInvalidationManager {
 
 /// Simple pattern matching for cache keys
 fn pattern_matches(key: &str, pattern: &str) -> bool {
-    if pattern.ends_with('*') {
-        let prefix = &pattern[..pattern.len() - 1];
+    if let Some(prefix) = pattern.strip_suffix('*') {
         key.starts_with(prefix)
     } else {
         key == pattern

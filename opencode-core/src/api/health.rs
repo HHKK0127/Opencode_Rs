@@ -2,8 +2,8 @@ use actix_web::{web, HttpResponse};
 use serde::Serialize;
 use std::time::Instant;
 
-use super::session::SessionStore;
 use super::events::EventBus;
+use super::session::SessionStore;
 
 pub struct HealthState {
     pub start_time: Instant,
@@ -28,14 +28,14 @@ struct ComponentsStatus {
 pub async fn global_health(state: web::Data<HealthState>) -> HttpResponse {
     let session_ok = state.session_store.try_read().is_some();
     let event_ok = true;
-    
+
     let healthy = session_ok;
     let mut status = if healthy {
         HttpResponse::Ok()
     } else {
         HttpResponse::ServiceUnavailable()
     };
-    
+
     status.json(HealthResponse {
         healthy,
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -50,14 +50,14 @@ pub async fn global_health(state: web::Data<HealthState>) -> HttpResponse {
 pub async fn api_health(state: web::Data<HealthState>) -> HttpResponse {
     let session_ok = state.session_store.try_read().is_some();
     let event_ok = true;
-    
+
     let healthy = session_ok;
     let mut status = if healthy {
         HttpResponse::Ok()
     } else {
         HttpResponse::ServiceUnavailable()
     };
-    
+
     status.json(HealthResponse {
         healthy,
         version: env!("CARGO_PKG_VERSION").to_string(),

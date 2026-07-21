@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 use actix_web::{test, web, App};
 use opencode_poc::api;
 use opencode_poc::app_state::AppState;
@@ -11,12 +13,11 @@ async fn test_health_endpoint() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v1/health")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v1/health").to_request();
 
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
@@ -29,8 +30,9 @@ async fn test_health_db_endpoint() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::get()
         .uri("/api/v1/health/db")
@@ -48,8 +50,9 @@ async fn test_cors_headers_on_health() {
         App::new()
             .app_data(web::Data::new(app_state))
             .wrap(opencode_poc::middleware_cors::configure_cors())
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::get()
         .uri("/api/v1/health")
@@ -68,12 +71,11 @@ async fn test_health_endpoint_no_auth_required() {
         App::new()
             .app_data(web::Data::new(app_state))
             .wrap(opencode_poc::auth_middleware::AuthMiddleware)
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v1/health")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v1/health").to_request();
 
     let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_success());

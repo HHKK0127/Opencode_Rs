@@ -18,7 +18,7 @@ OpenCode_Rs is a project to incrementally migrate the large-scale TypeScript app
 | **opencode-core** (Desktop Server) | Rust (Actix-web) | ✅ V2 API Phase 1 Complete |
 | **opencode-desktop** (Web Frontend) | React 19 + TypeScript | ⏳ Legacy (統合予定) |
 | **opencode-electron** (Desktop App) | SolidJS + Electron | ✅ Phase 2 Complete — Phase 3 進行中 |
-| **opencode-flutter** (Desktop App) | Flutter (Dart) | 🆕 Initial scaffold (Login + Files) |
+| **opencode_tui** (TUI) | Rust (Ratatui) | ✅ 121/121 タスク完了 |
 
 ---
 
@@ -83,20 +83,100 @@ npm run dev
 
 ## 🖥️ Ratatui TUI (Rust) / Terminal UI
 
-`opencode_poc` に Ratatui ベースの TUI バイナリを追加しました。
+`opencode_tui` は Ratatui ベースのモダンなターミナル UI です。
 
-```bash
+### 機能一覧 / Features
+
+| 機能 | 説明 |
+| --- | --- |
+| **チャット画面** | メッセージ一覧 + 入力エリア |
+| **ストリーミング応答** | 文字単位のインクリメンタル表示 |
+| **Markdown レンダリング** | コードハイライト、テーブル、リスト対応 |
+| **Diff 色付け** | コードブロック内の +/- 行を色分け |
+| **テーマシステム** | 10テーマ（dark, light, gruvbox, solarized, nord, catppuccin, tokyo-night） |
+| **モデルピッカー** | Ctrl+P で LLM モデル切替 |
+| **サイドバー** | Ctrl+S でチャット履歴表示 |
+| **ツールパネル** | Ctrl+T でツールコール表示 |
+| **エディタ** | Ctrl+E でインラインエディタ |
+| **@mention 補完** | @file, @code, @history, @model |
+| **スラッシュコマンド** | /help, /clear, /model, /files, /compact |
+| **Vim キーバインド** | hjkl, オペレータ+モーション対応 |
+| **ファジー検索** | サブシーケンススコアリング |
+| **シマーアニメーション** | 読み込み中のエフェクト |
+| **トークン使用量表示** | 応答速度 (tok/s) + 使用量 |
+
+### 起動方法 / How to Run
+
+```powershell
+cd C:\Drive\Cargo\OpenCode_Rs
+
+# API キー設定
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+
+# ビルド & 実行
 cargo run --bin opencode_tui
+
+# または直接実行
+.\target\debug\opencode_tui.exe
 ```
 
-主な操作:
-- `q`: 終了
-- `Tab` / `←` / `→`: 画面切替
-- `j` / `k`: ファイル選択移動
-- `r`: `uploads/` / message の再読み込み
-- Messages 画面で `Enter`: プロンプト送信
+### キーバインド / Key Bindings
 
-`OPENCODE_CORE_URL` 環境変数で接続先を変更可能です（既定: `http://127.0.0.1:4096`）。
+| キー | 操作 |
+| --- | --- |
+| `Enter` | プロンプト送信 |
+| `Ctrl+K` | 設定画面 |
+| `Ctrl+Q` | 終了 |
+| `Ctrl+S` | サイドバー表示/非表示 |
+| `Ctrl+T` | ツールパネル表示/非表示 |
+| `Ctrl+L` | ツールコール展開/折りたたみ |
+| `Ctrl+E` | エディタ表示/非表示 |
+| `Ctrl+M` | マルチライン入力トグル |
+| `Ctrl+P` | モデルピッカー |
+| `Tab` | フォーカス切替 |
+| `Up/Down` | スクロール |
+| `F1` | ヘルプ表示 |
+
+### Vim モード / Vim Mode
+
+エディタ表示時に Vim モードが有効になります:
+
+| モード | キー | 操作 |
+| --- | --- | --- |
+| Normal | `h/j/k/l` | カーソル移動 |
+| Normal | `0` / `$` | 行頭/行末 |
+| Normal | `i` | Insert モード |
+| Normal | `A` | 行末で Insert |
+| Normal | `d` + `motion` | 削除 |
+| Normal | `y` + `motion` | ヤンク |
+| Insert | `Esc` | Normal モード |
+
+### スラッシュコマンド / Slash Commands
+
+| コマンド | 説明 |
+| --- | --- |
+| `/help` | ヘルプ表示 |
+| `/clear` | チャット履歴クリア |
+| `/model` | モデル切替 |
+| `/files` | ファイル一覧表示 |
+| `/compact` | メッセージ圧縮 |
+
+### Warp-inspired アーキテクチャ / Architecture
+
+TUI は以下のパターンで構築されています:
+
+| パターン | 説明 |
+| --- | --- |
+| **Keymap matcher** | Trie ベースのマルチキーシーケンスマッチング |
+| **InputClassifier** | キーイベントを7カテゴリに分類 |
+| **PositionCache** | レイアウト位置キャッシュ |
+| **CompletionEngine** | マルチタイプ補完管理 |
+| **TaskQueue** | 前景/背景タスク分離 |
+| **View+Element** | UI コンポジション |
+| **VimFSA** | Vim 有限状態機械 |
+| **Plugin System** | プラグインライフサイクル管理 |
+| **Toast Notification** | 通知システム |
+| **Event Bubbling** | イベント伝播 |
 
 ---
 

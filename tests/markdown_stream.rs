@@ -26,7 +26,10 @@ fn test_markdown_stream_line_gate() {
     assert!(ms.commit_complete_source().is_none()); // no newline yet
 
     ms.push("world\n");
-    assert_eq!(ms.commit_complete_source(), Some("hello world\n".to_string()));
+    assert_eq!(
+        ms.commit_complete_source(),
+        Some("hello world\n".to_string())
+    );
 
     ms.push("line 2\nline 3");
     assert_eq!(ms.commit_complete_source(), Some("line 2\n".to_string()));

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Event persistence layer with Redis integration
 use crate::notifications::event::Event;
 use serde::{Deserialize, Serialize};
@@ -39,7 +40,11 @@ impl EventPersistenceManager {
 
         // Log batch addition
         if buffer.len() % self.batch_size == 0 {
-            info!("Event buffer size: {} (batch size: {})", buffer.len(), self.batch_size);
+            info!(
+                "Event buffer size: {} (batch size: {})",
+                buffer.len(),
+                self.batch_size
+            );
         }
 
         Ok(())

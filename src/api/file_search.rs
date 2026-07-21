@@ -4,10 +4,7 @@
 //! TTL: 30 minutes
 //! Cache Key: files:search:{query_hash}:{page}:{per_page}
 
-use actix_web::{
-    web,
-    HttpResponse,
-};
+use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -16,8 +13,8 @@ use tracing::{debug, info, warn};
 
 use crate::{
     app_state::AppState,
-    error::{AppError, AppResult},
     cache::metrics::REDIS_OPERATIONS_TOTAL,
+    error::{AppError, AppResult},
 };
 
 /// 検索クエリパラメータ
@@ -46,7 +43,12 @@ impl FileSearchQuery {
         page.hash(&mut hasher);
         per_page.hash(&mut hasher);
 
-        format!("files:search:{:016x}:{}:{}", hasher.finish(), page, per_page)
+        format!(
+            "files:search:{:016x}:{}:{}",
+            hasher.finish(),
+            page,
+            per_page
+        )
     }
 }
 
@@ -78,7 +80,9 @@ pub async fn search_files(
                 debug!("Cache hit for search: {}", cache_key);
 
                 // Record metrics
-                REDIS_OPERATIONS_TOTAL.with_label_values(&["search_cache_hit"]).inc();
+                REDIS_OPERATIONS_TOTAL
+                    .with_label_values(&["search_cache_hit"])
+                    .inc();
 
                 let mut response = cached_result;
                 response.cached = true;
@@ -86,11 +90,15 @@ pub async fn search_files(
             }
             Ok(None) => {
                 debug!("Cache miss for search: {}", cache_key);
-                REDIS_OPERATIONS_TOTAL.with_label_values(&["search_cache_miss"]).inc();
+                REDIS_OPERATIONS_TOTAL
+                    .with_label_values(&["search_cache_miss"])
+                    .inc();
             }
             Err(e) => {
                 warn!("Cache error, falling back to DB: {}", e);
-                REDIS_OPERATIONS_TOTAL.with_label_values(&["search_cache_error"]).inc();
+                REDIS_OPERATIONS_TOTAL
+                    .with_label_values(&["search_cache_error"])
+                    .inc();
             }
         }
     }
@@ -100,7 +108,7 @@ pub async fn search_files(
 
     // In production, this would query the database
     // For now, return empty search results
-    let total_pages = (0i64 + per_page - 1) / per_page;
+    let total_pages = (per_page - 1) / per_page;
 
     let response = FileSearchResponse {
         files: vec![],
@@ -123,12 +131,16 @@ pub async fn search_files(
 
         match cache_result {
             Ok(_) => {
-                REDIS_OPERATIONS_TOTAL.with_label_values(&["search_cache_set"]).inc();
+                REDIS_OPERATIONS_TOTAL
+                    .with_label_values(&["search_cache_set"])
+                    .inc();
                 debug!("Cached search results: {}", cache_key);
             }
             Err(e) => {
                 warn!("Failed to cache search results: {}", e);
-                REDIS_OPERATIONS_TOTAL.with_label_values(&["search_cache_set_error"]).inc();
+                REDIS_OPERATIONS_TOTAL
+                    .with_label_values(&["search_cache_set_error"])
+                    .inc();
             }
         }
     }
@@ -137,15 +149,15 @@ pub async fn search_files(
 }
 
 /// キャッシュ無効化ヘルパー（ファイル変更時に呼び出し）
-pub async fn invalidate_search_cache(
-    app_state: &web::Data<AppState>,
-) -> Result<(), AppError> {
+pub async fn invalidate_search_cache(app_state: &web::Data<AppState>) -> Result<(), AppError> {
     if let Some(ref cache) = app_state.cache {
         // 検索キャッシュを無効化
         // Note: Pattern matching would require SCAN/KEYS command implementation
         // For now, we just log that invalidation is needed
         info!("Invalidated search cache (pattern-based deletion not yet implemented)");
-        REDIS_OPERATIONS_TOTAL.with_label_values(&["search_cache_invalidate"]).inc();
+        REDIS_OPERATIONS_TOTAL
+            .with_label_values(&["search_cache_invalidate"])
+            .inc();
         Ok(())
     } else {
         Ok(())
@@ -227,7 +239,6 @@ mod tests {
 /// ルーティング設定
 pub fn configure(cfg: &mut actix_web::web::ServiceConfig) {
     cfg.service(
-        actix_web::web::resource("/files/search")
-            .route(actix_web::web::get().to(search_files))
+        actix_web::web::resource("/files/search").route(actix_web::web::get().to(search_files)),
     );
 }

@@ -117,10 +117,7 @@ impl PromptCache {
     ///
     /// Returns a list of [`CompactedBlock`] entries that replace older messages,
     /// along with how many messages should be preserved from the end.
-    pub fn compact(
-        &self,
-        messages: &[impl AsRef<str>],
-    ) -> (Vec<CompactedBlock>, usize) {
+    pub fn compact(&self, messages: &[impl AsRef<str>]) -> (Vec<CompactedBlock>, usize) {
         if messages.len() <= PRESERVE_RECENT {
             return (Vec::new(), self.preserve_recent());
         }
@@ -174,20 +171,20 @@ impl PromptCache {
     }
 
     /// Mark that compaction has been applied.
-        pub fn mark_compacted(&self) {
-            *self.compacted.lock().unwrap() = true;
+    pub fn mark_compacted(&self) {
+        *self.compacted.lock().unwrap() = true;
         self.current_estimate.store(0, Ordering::Relaxed);
     }
 
     /// Whether compaction has been applied.
     pub fn is_compacted(&self) -> bool {
-            *self.compacted.lock().unwrap()
+        *self.compacted.lock().unwrap()
     }
 
     /// Reset the cache.
-        pub fn reset(&self) {
+    pub fn reset(&self) {
         self.current_estimate.store(0, Ordering::Relaxed);
-            *self.compacted.lock().unwrap() = false;
+        *self.compacted.lock().unwrap() = false;
     }
 }
 
@@ -201,10 +198,13 @@ pub fn compaction_notice(blocks: &[CompactedBlock]) -> String {
     let mut notice = String::from(
         "<compaction_notice>\n\
          The following older conversation turns have been summarized.\n\
-         If you need details about any of these topics, ask the user.\n"
+         If you need details about any of these topics, ask the user.\n",
     );
     for block in blocks {
-        notice.push_str(&format!("  • [{} msgs] {}\n", block.original_count, block.summary));
+        notice.push_str(&format!(
+            "  • [{} msgs] {}\n",
+            block.original_count, block.summary
+        ));
     }
     notice.push_str("</compaction_notice>");
     notice
@@ -253,9 +253,7 @@ mod tests {
     #[test]
     fn no_compaction_for_few_messages() {
         let cache = PromptCache::new(1000);
-        let messages: Vec<String> = (0..4)
-            .map(|i| format!("Message {i}"))
-            .collect();
+        let messages: Vec<String> = (0..4).map(|i| format!("Message {i}")).collect();
         let (blocks, preserve) = cache.compact(&messages);
         assert!(blocks.is_empty());
         // When no compaction is needed, preserve returns the total count
@@ -272,12 +270,10 @@ mod tests {
 
     #[test]
     fn compaction_notice_format() {
-        let blocks = vec![
-            CompactedBlock {
-                summary: "Test summary".to_string(),
-                original_count: 3,
-            },
-        ];
+        let blocks = vec![CompactedBlock {
+            summary: "Test summary".to_string(),
+            original_count: 3,
+        }];
         let notice = compaction_notice(&blocks);
         assert!(notice.contains("compaction_notice"));
         assert!(notice.contains("Test summary"));

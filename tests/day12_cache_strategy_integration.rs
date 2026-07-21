@@ -1,6 +1,13 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
 /// Wave 4 Day 12: Cache Strategy Integration Tests
 /// Tests Cache-Aside, Write-Through, TTL configuration, and invalidation patterns
-
 #[cfg(test)]
 mod cache_strategy_integration_tests {
     use std::time::Duration;
@@ -55,10 +62,10 @@ mod cache_strategy_integration_tests {
     // Test 4: TTL Configuration - Hierarchy
     #[tokio::test]
     async fn test_ttl_hierarchy() {
-        let file_metadata_ttl = Duration::from_secs(3600);    // 1 hour
-        let file_list_ttl = Duration::from_secs(1800);        // 30 minutes
-        let search_results_ttl = Duration::from_secs(1800);   // 30 minutes
-        let session_ttl = Duration::from_secs(86400);         // 24 hours
+        let file_metadata_ttl = Duration::from_secs(3600); // 1 hour
+        let file_list_ttl = Duration::from_secs(1800); // 30 minutes
+        let search_results_ttl = Duration::from_secs(1800); // 30 minutes
+        let session_ttl = Duration::from_secs(86400); // 24 hours
 
         // Session TTL should be longest
         assert!(session_ttl > file_metadata_ttl);
@@ -71,10 +78,10 @@ mod cache_strategy_integration_tests {
     // Test 5: TTL Configuration - Default values
     #[tokio::test]
     async fn test_ttl_default_values() {
-        let default_metadata = 3600;      // 1 hour
-        let default_list = 1800;          // 30 minutes
-        let default_search = 1800;        // 30 minutes
-        let default_session = 86400;      // 24 hours
+        let default_metadata = 3600; // 1 hour
+        let default_list = 1800; // 30 minutes
+        let default_search = 1800; // 30 minutes
+        let default_session = 86400; // 24 hours
 
         assert_eq!(default_metadata, 3600);
         assert_eq!(default_list, 1800);

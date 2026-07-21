@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 // Metrics API Integration Tests
 
 use actix_web::{http::StatusCode, test, web, App};
@@ -30,9 +32,7 @@ async fn test_metrics_endpoint_available() {
     let health_req = test::TestRequest::get().uri("/health").to_request();
     let _ = test::call_service(&app, health_req).await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v1/metrics")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v1/metrics").to_request();
 
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::OK);
@@ -41,7 +41,8 @@ async fn test_metrics_endpoint_available() {
     let body_text = String::from_utf8_lossy(&body);
 
     assert!(
-        body_text.contains("http_requests_total") || body_text.contains("http_request_duration_seconds"),
+        body_text.contains("http_requests_total")
+            || body_text.contains("http_request_duration_seconds"),
         "Metrics should contain HTTP metrics"
     );
 }
@@ -62,16 +63,18 @@ async fn test_metrics_content_type() {
     )
     .await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v1/metrics")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v1/metrics").to_request();
 
     let resp = test::call_service(&app, req).await;
     let content_type = resp.headers().get("content-type");
 
     assert!(content_type.is_some());
     assert!(
-        content_type.unwrap().to_str().unwrap().contains("text/plain"),
+        content_type
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("text/plain"),
         "Metrics should be text/plain"
     );
 }

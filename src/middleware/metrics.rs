@@ -3,9 +3,7 @@ use actix_web::{
     Error,
 };
 use futures::future::LocalBoxFuture;
-use prometheus::{
-    Counter, CounterVec, HistogramVec, IntGauge, Registry, TextEncoder, Encoder,
-};
+use prometheus::{Counter, CounterVec, Encoder, HistogramVec, IntGauge, Registry, TextEncoder};
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -109,7 +107,8 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let method = req.method().to_string();
         let path = req.path().to_string();
-        let request_size = req.headers()
+        let request_size = req
+            .headers()
             .get("content-length")
             .and_then(|h| h.to_str().ok())
             .and_then(|s| s.parse::<f64>().ok())
@@ -140,7 +139,8 @@ where
 
             let status = res.status().as_u16().to_string();
             let duration = start.elapsed().as_secs_f64();
-            let response_size = res.headers()
+            let response_size = res
+                .headers()
                 .get("content-length")
                 .and_then(|h| h.to_str().ok())
                 .and_then(|s| s.parse::<f64>().ok())

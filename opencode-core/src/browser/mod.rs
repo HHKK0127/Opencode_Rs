@@ -6,8 +6,8 @@ pub mod types;
 
 use chromiumoxide::browser::{Browser, BrowserConfig as ChromeConfig};
 use futures::StreamExt;
-use tokio::sync::RwLock;
 use std::collections::HashMap;
+use tokio::sync::RwLock;
 
 pub use error::BrowserError;
 

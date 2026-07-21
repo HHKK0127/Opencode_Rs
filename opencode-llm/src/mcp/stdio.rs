@@ -1,9 +1,9 @@
 //! MCP stdio transport — spawns a child process and communicates over
 //! stdin/stdout using the MCP HTTP-like frame protocol (Content-Length headers).
 
+use std::collections::BTreeMap;
 use std::io;
 use std::process::Stdio;
-use std::collections::BTreeMap;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -11,10 +11,9 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 use crate::mcp::jsonrpc::{
-    JsonRpcId, JsonRpcRequest, JsonRpcResponse, McpInitializeParams,
-    McpInitializeResult, McpListToolsParams, McpListToolsResult, McpToolCallParams,
-    McpToolCallResult, McpListResourcesParams, McpListResourcesResult, McpReadResourceParams,
-    McpReadResourceResult,
+    JsonRpcId, JsonRpcRequest, JsonRpcResponse, McpInitializeParams, McpInitializeResult,
+    McpListResourcesParams, McpListResourcesResult, McpListToolsParams, McpListToolsResult,
+    McpReadResourceParams, McpReadResourceResult, McpToolCallParams, McpToolCallResult,
 };
 
 /// A stdio-based MCP process.
@@ -30,7 +29,11 @@ pub struct McpStdioProcess {
 
 impl McpStdioProcess {
     /// Spawn a new stdio MCP process.
-    pub fn spawn(command: &str, args: &[String], env: &BTreeMap<String, String>) -> io::Result<Self> {
+    pub fn spawn(
+        command: &str,
+        args: &[String],
+        env: &BTreeMap<String, String>,
+    ) -> io::Result<Self> {
         let mut cmd = Command::new(command);
         cmd.args(args)
             .stdin(Stdio::piped())
@@ -133,10 +136,7 @@ impl McpStdioProcess {
         }
 
         let content_length = content_length.ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                "missing Content-Length header",
-            )
+            io::Error::new(io::ErrorKind::InvalidData, "missing Content-Length header")
         })?;
         let mut payload = vec![0u8; content_length];
         self.stdout.read_exact(&mut payload).await?;
@@ -149,16 +149,15 @@ impl McpStdioProcess {
 
     /// Serialize and send a JSON-RPC message.
     pub async fn write_jsonrpc<T: Serialize>(&mut self, message: &T) -> io::Result<()> {
-        let body =
-            serde_json::to_vec(message).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let body = serde_json::to_vec(message)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         self.write_frame(&body).await
     }
 
     /// Read and deserialize a JSON-RPC response.
     pub async fn read_jsonrpc<T: DeserializeOwned>(&mut self) -> io::Result<T> {
         let payload = self.read_frame().await?;
-        serde_json::from_slice(&payload)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+        serde_json::from_slice(&payload).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
     }
 
     /// Send a JSON-RPC request and read the response (generic).

@@ -1,5 +1,6 @@
-use sqlx::sqlite::SqlitePool;
+#![allow(dead_code)]
 use log::info;
+use sqlx::sqlite::SqlitePool;
 
 /// Apply performance optimizations — PostgreSQL uses server-side config (postgresql.conf).
 /// SQLite では不要。
@@ -32,7 +33,7 @@ pub async fn get_database_stats(pool: &SqlitePool) -> Result<DatabaseStats, sqlx
     // ただしこの場合は、pg_database_size は PostgreSQL 専用なので、
     // スキップするか簡易版を返す
     info!("Getting database statistics...");
-    
+
     Ok(DatabaseStats {
         page_count: 0,
         page_size: 4096,

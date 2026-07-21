@@ -1,9 +1,10 @@
+#![allow(dead_code)]
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_s3::{
     config::Credentials,
+    operation::head_object::HeadObjectOutput,
     primitives::ByteStream,
     types::{CompletedMultipartUpload, CompletedPart},
-    operation::head_object::HeadObjectOutput,
     Client,
 };
 use std::time::Duration;
@@ -23,8 +24,7 @@ pub struct S3Client {
 
 impl S3Client {
     pub async fn new(settings: &Settings) -> AppResult<Self> {
-        let region_provider = RegionProviderChain::default_provider()
-            .or_else("us-east-1");
+        let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
 
         let region = region_provider.region().await;
 
@@ -43,7 +43,7 @@ impl S3Client {
             .region(region)
             .credentials_provider(creds)
             .endpoint_url(endpoint_url)
-            .force_path_style(true)  // MinIO requires path-style
+            .force_path_style(true) // MinIO requires path-style
             .build();
 
         let client = Client::from_conf(config);
@@ -178,21 +178,19 @@ impl S3Client {
         expires_in: Duration,
         content_type: Option<&str>,
     ) -> AppResult<String> {
-        let mut builder = self
-            .client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(key);
+        let mut builder = self.client.put_object().bucket(&self.bucket).key(key);
 
         if let Some(ct) = content_type {
             builder = builder.content_type(ct);
         }
 
         let presigned = builder
-            .presigned(aws_sdk_s3::presigning::PresigningConfig::builder()
-                .expires_in(expires_in)
-                .build()
-                .map_err(|_| AppError::Internal)?)
+            .presigned(
+                aws_sdk_s3::presigning::PresigningConfig::builder()
+                    .expires_in(expires_in)
+                    .build()
+                    .map_err(|_| AppError::Internal)?,
+            )
             .await
             .map_err(|e| {
                 error!("Presigned URL generation failed: {}", e);
@@ -213,10 +211,12 @@ impl S3Client {
             .get_object()
             .bucket(&self.bucket)
             .key(key)
-            .presigned(aws_sdk_s3::presigning::PresigningConfig::builder()
-                .expires_in(expires_in)
-                .build()
-                .map_err(|_| AppError::Internal)?)
+            .presigned(
+                aws_sdk_s3::presigning::PresigningConfig::builder()
+                    .expires_in(expires_in)
+                    .build()
+                    .map_err(|_| AppError::Internal)?,
+            )
             .await
             .map_err(|e| {
                 error!("Presigned URL generation failed: {}", e);
@@ -346,20 +346,17 @@ impl S3Client {
     ) -> AppResult<String> {
         let upload_id = self.initiate_multipart_upload(key).await?;
 
-        let mut part_number = 1;
         let mut parts = Vec::new();
 
         // チャンク単位でアップロード
-        for chunk in file_data.chunks(chunk_size) {
+        for (part_number, chunk) in (1..).zip(file_data.chunks(chunk_size)) {
             let part = self
                 .upload_part(key, &upload_id, part_number, chunk.to_vec())
                 .await?;
             parts.push(part);
-            part_number += 1;
         }
 
-        self.complete_multipart_upload(key, &upload_id, parts)
-            .await
+        self.complete_multipart_upload(key, &upload_id, parts).await
     }
 
     // キャッシュキー生成（ETag ベース）

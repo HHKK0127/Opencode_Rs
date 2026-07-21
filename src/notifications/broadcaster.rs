@@ -1,5 +1,5 @@
-use super::event::{Event, EventType};
 use super::channel::NotificationChannel;
+use super::event::{Event, EventType};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -79,12 +79,7 @@ impl EventBroadcaster {
     /// Get event history
     pub async fn get_history(&self, limit: usize) -> Vec<Event> {
         let history = self.event_history.read().await;
-        history
-            .iter()
-            .rev()
-            .take(limit)
-            .cloned()
-            .collect()
+        history.iter().rev().take(limit).cloned().collect()
     }
 
     /// Get events by type
@@ -135,7 +130,9 @@ mod tests {
         let broadcaster = EventBroadcaster::new(BroadcasterConfig::default());
 
         let event_types = vec![EventType::FileUploaded, EventType::CacheHit];
-        broadcaster.subscribe("sub:001".to_string(), event_types).await;
+        broadcaster
+            .subscribe("sub:001".to_string(), event_types)
+            .await;
 
         let filters = &broadcaster.subscriber_filters.read().await;
         assert!(filters.contains_key("sub:001"));
@@ -167,7 +164,9 @@ mod tests {
 
         // Get events by type
         let cache_hits = broadcaster.get_events_by_type(EventType::CacheHit).await;
-        let uploads = broadcaster.get_events_by_type(EventType::FileUploaded).await;
+        let uploads = broadcaster
+            .get_events_by_type(EventType::FileUploaded)
+            .await;
 
         assert_eq!(cache_hits.len(), 1);
         assert_eq!(uploads.len(), 1);
@@ -177,7 +176,9 @@ mod tests {
     async fn test_subscriber_unregistration() {
         let broadcaster = EventBroadcaster::new(BroadcasterConfig::default());
 
-        broadcaster.subscribe("sub:001".to_string(), vec![EventType::CacheHit]).await;
+        broadcaster
+            .subscribe("sub:001".to_string(), vec![EventType::CacheHit])
+            .await;
         assert_eq!(broadcaster.subscriber_filters.read().await.len(), 1);
 
         broadcaster.unsubscribe("sub:001").await;

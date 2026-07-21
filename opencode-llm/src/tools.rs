@@ -157,8 +157,14 @@ pub fn mvp_tool_executors() -> BTreeMap<String, ToolExecutor> {
     m.insert(read_file::NAME.into(), Arc::new(read_file::ReadFileTool));
     m.insert(write_file::NAME.into(), Arc::new(write_file::WriteFileTool));
     m.insert(edit_file::NAME.into(), Arc::new(edit_file::EditFileTool));
-    m.insert(glob_search::NAME.into(), Arc::new(glob_search::GlobSearchTool));
-    m.insert(grep_search::NAME.into(), Arc::new(grep_search::GrepSearchTool));
+    m.insert(
+        glob_search::NAME.into(),
+        Arc::new(glob_search::GlobSearchTool),
+    );
+    m.insert(
+        grep_search::NAME.into(),
+        Arc::new(grep_search::GrepSearchTool),
+    );
     m.insert(web_fetch::NAME.into(), Arc::new(web_fetch::WebFetchTool));
     m.insert(web_search::NAME.into(), Arc::new(web_search::WebSearchTool));
     m

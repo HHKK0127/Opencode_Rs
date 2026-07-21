@@ -24,7 +24,10 @@ impl Default for BrowserConfig {
             headless: true,
             window_width: 1280,
             window_height: 720,
-            screenshot_dir: temp.join("opencode-screenshots").to_string_lossy().to_string(),
+            screenshot_dir: temp
+                .join("opencode-screenshots")
+                .to_string_lossy()
+                .to_string(),
             pdf_dir: temp.join("opencode-pdf").to_string_lossy().to_string(),
             max_concurrent_tabs: 10,
             navigation_timeout_secs: 30,
@@ -73,18 +76,17 @@ pub struct OpenCodeConfig {
 impl Default for OpenCodeConfig {
     fn default() -> Self {
         Self {
-            username: std::env::var("OPENCODE_SERVER_USERNAME").unwrap_or_else(|_| "opencode".to_string()),
-            password: std::env::var("OPENCODE_SERVER_PASSWORD").unwrap_or_else(|_| uuid::Uuid::new_v4().to_string()),
+            username: std::env::var("OPENCODE_SERVER_USERNAME")
+                .unwrap_or_else(|_| "opencode".to_string()),
+            password: std::env::var("OPENCODE_SERVER_PASSWORD")
+                .unwrap_or_else(|_| uuid::Uuid::new_v4().to_string()),
             host: std::env::var("OPENCODE_SERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
             port: std::env::var("OPENCODE_SERVER_PORT")
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8080),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            data_dir: std::env::var("XDG_STATE_HOME")
-                .unwrap_or_else(|_| {
-                    dirs_data_dir()
-                }),
+            data_dir: std::env::var("XDG_STATE_HOME").unwrap_or_else(|_| dirs_data_dir()),
             browser: BrowserConfig::default(),
             ui_mode: UiMode::from_env(),
         }

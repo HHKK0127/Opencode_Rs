@@ -322,7 +322,11 @@ pub fn mcp_tool_prefix(server_name: &str) -> String {
 
 /// Build the fully qualified MCP tool name.
 pub fn mcp_tool_name(server_name: &str, tool_name: &str) -> String {
-    format!("{}{}", mcp_tool_prefix(server_name), normalize_name(tool_name))
+    format!(
+        "{}{}",
+        mcp_tool_prefix(server_name),
+        normalize_name(tool_name)
+    )
 }
 
 /// Normalize a name for use in MCP tool identifiers.

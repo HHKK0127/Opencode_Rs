@@ -1,5 +1,5 @@
-use super::types::AccessibilityNode;
 use super::session::BrowserSession;
+use super::types::AccessibilityNode;
 
 const MAX_TREE_DEPTH: usize = 100;
 
@@ -66,33 +66,72 @@ pub struct CdpAXNode {
 pub fn parse_ax_tree(
     ax_nodes: &[&chromiumoxide::cdp::browser_protocol::accessibility::AxNode],
     children_map: &std::collections::HashMap<String, Vec<String>>,
-    node_map: &std::collections::HashMap<String, &chromiumoxide::cdp::browser_protocol::accessibility::AxNode>,
+    node_map: &std::collections::HashMap<
+        String,
+        &chromiumoxide::cdp::browser_protocol::accessibility::AxNode,
+    >,
 ) -> Vec<CdpAXNode> {
     ax_nodes
         .iter()
         .filter_map(|node| {
-            let child_ids = children_map.get(node.node_id.as_ref()).cloned().unwrap_or_default();
+            let child_ids = children_map
+                .get(node.node_id.as_ref())
+                .cloned()
+                .unwrap_or_default();
             let children: Vec<CdpAXNode> = child_ids
                 .iter()
                 .filter_map(|child_id| {
                     node_map.get(child_id).map(|child| {
-                        let grandchild_ids = children_map.get(child_id).cloned().unwrap_or_default();
+                        let grandchild_ids =
+                            children_map.get(child_id).cloned().unwrap_or_default();
                         let grandchild_nodes: Vec<CdpAXNode> = grandchild_ids
                             .iter()
                             .filter_map(|gc_id| {
                                 node_map.get(gc_id).map(|gc| CdpAXNode {
-                                    role: gc.role.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                                    name: gc.name.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).map(String::from),
-                                    value: gc.value.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).map(String::from),
+                                    role: gc
+                                        .role
+                                        .as_ref()
+                                        .and_then(|v| v.value.as_ref())
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("")
+                                        .to_string(),
+                                    name: gc
+                                        .name
+                                        .as_ref()
+                                        .and_then(|v| v.value.as_ref())
+                                        .and_then(|v| v.as_str())
+                                        .map(String::from),
+                                    value: gc
+                                        .value
+                                        .as_ref()
+                                        .and_then(|v| v.value.as_ref())
+                                        .and_then(|v| v.as_str())
+                                        .map(String::from),
                                     children: vec![],
                                 })
                             })
                             .collect();
 
                         CdpAXNode {
-                            role: child.role.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                            name: child.name.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).map(String::from),
-                            value: child.value.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).map(String::from),
+                            role: child
+                                .role
+                                .as_ref()
+                                .and_then(|v| v.value.as_ref())
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            name: child
+                                .name
+                                .as_ref()
+                                .and_then(|v| v.value.as_ref())
+                                .and_then(|v| v.as_str())
+                                .map(String::from),
+                            value: child
+                                .value
+                                .as_ref()
+                                .and_then(|v| v.value.as_ref())
+                                .and_then(|v| v.as_str())
+                                .map(String::from),
                             children: grandchild_nodes,
                         }
                     })
@@ -100,9 +139,25 @@ pub fn parse_ax_tree(
                 .collect();
 
             Some(CdpAXNode {
-                role: node.role.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                name: node.name.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).map(String::from),
-                value: node.value.as_ref().and_then(|v| v.value.as_ref()).and_then(|v| v.as_str()).map(String::from),
+                role: node
+                    .role
+                    .as_ref()
+                    .and_then(|v| v.value.as_ref())
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                name: node
+                    .name
+                    .as_ref()
+                    .and_then(|v| v.value.as_ref())
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                value: node
+                    .value
+                    .as_ref()
+                    .and_then(|v| v.value.as_ref())
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
                 children,
             })
         })

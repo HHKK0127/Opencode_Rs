@@ -28,7 +28,10 @@ impl BrowserManager {
                 .map_err(|e| BrowserError::ConnectionFailed(e.to_string()))?
         } else {
             let sessions = self.sessions.read().await;
-            match sessions.get(session_name).and_then(|s| s.current_tab.as_ref()) {
+            match sessions
+                .get(session_name)
+                .and_then(|s| s.current_tab.as_ref())
+            {
                 Some(handle) => handle.page.clone(),
                 None => {
                     drop(sessions);
@@ -54,12 +57,7 @@ impl BrowserManager {
         let tab_id = page.target_id().inner().clone();
         let final_url = args.url.clone();
 
-        let title = page
-            .get_title()
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_default();
+        let title = page.get_title().await.ok().flatten().unwrap_or_default();
 
         let tab_info = TabInfo {
             tab_id: tab_id.clone(),
@@ -70,9 +68,9 @@ impl BrowserManager {
         };
 
         let mut sessions = self.sessions.write().await;
-        let session = sessions
-            .entry(session_name.to_string())
-            .or_insert_with(|| BrowserSession::new(session_name.to_string(), args.group_title.clone()));
+        let session = sessions.entry(session_name.to_string()).or_insert_with(|| {
+            BrowserSession::new(session_name.to_string(), args.group_title.clone())
+        });
         session.tabs.insert(tab_id.clone(), tab_info);
         session.current_tab = Some(TabHandle {
             tab_id: tab_id.clone(),
@@ -113,17 +111,9 @@ impl BrowserManager {
             })?;
 
         let tab = if args.active.unwrap_or(false) {
-            session
-                .tabs
-                .values()
-                .find(|t| t.active)
-                .cloned()
+            session.tabs.values().find(|t| t.active).cloned()
         } else {
-            session
-                .tabs
-                .values()
-                .find(|t| t.url == args.url)
-                .cloned()
+            session.tabs.values().find(|t| t.url == args.url).cloned()
         };
 
         match tab {
@@ -143,22 +133,21 @@ impl BrowserManager {
     // ========================================================================
     pub async fn snapshot(&self, session_name: &str) -> Result<SnapshotResponse, BrowserError> {
         let sessions = self.sessions.read().await;
-        let session = sessions.get(session_name).ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
-        let handle = session.current_tab.as_ref().ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
+        let session = sessions
+            .get(session_name)
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
+        let handle = session
+            .current_tab
+            .as_ref()
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
 
         session.reset_e_refs();
 
-        let url = handle
-            .page
-            .url()
-            .await
-            .ok()
-            .flatten()
-            .unwrap_or_default();
+        let url = handle.page.url().await.ok().flatten().unwrap_or_default();
         let title = handle
             .page
             .get_title()
@@ -169,10 +158,12 @@ impl BrowserManager {
 
         let ax_tree_result = handle
             .page
-            .execute(chromiumoxide::cdp::browser_protocol::accessibility::GetFullAxTreeParams {
-                depth: Some(100),
-                frame_id: None,
-            })
+            .execute(
+                chromiumoxide::cdp::browser_protocol::accessibility::GetFullAxTreeParams {
+                    depth: Some(100),
+                    frame_id: None,
+                },
+            )
             .await
             .map_err(|e| BrowserError::ConnectionFailed(e.to_string()))?;
 
@@ -201,9 +192,12 @@ impl BrowserManager {
             ax_nodes
                 .iter()
                 .filter(|n| {
-                    !ax_nodes
-                        .iter()
-                        .any(|parent| parent.child_ids.as_ref().map_or(false, |ids| ids.contains(&n.node_id)))
+                    !ax_nodes.iter().any(|parent| {
+                        parent
+                            .child_ids
+                            .as_ref()
+                            .map_or(false, |ids| ids.contains(&n.node_id))
+                    })
                 })
                 .collect();
 
@@ -222,12 +216,17 @@ impl BrowserManager {
         args: ClickArgs,
     ) -> Result<ClickResponse, BrowserError> {
         let sessions = self.sessions.read().await;
-        let session = sessions.get(session_name).ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
-        let handle = session.current_tab.as_ref().ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
+        let session = sessions
+            .get(session_name)
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
+        let handle = session
+            .current_tab
+            .as_ref()
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
 
         let selector = &args.selector;
         let js = format!(
@@ -287,12 +286,17 @@ impl BrowserManager {
         args: FillArgs,
     ) -> Result<FillResponse, BrowserError> {
         let sessions = self.sessions.read().await;
-        let session = sessions.get(session_name).ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
-        let handle = session.current_tab.as_ref().ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
+        let session = sessions
+            .get(session_name)
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
+        let handle = session
+            .current_tab
+            .as_ref()
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
 
         let selector = args.selector.replace('\'', "\\'");
         let value = args.value.replace('\'', "\\'").replace('\n', "\\n");
@@ -366,12 +370,17 @@ impl BrowserManager {
         args: EvaluateArgs,
     ) -> Result<EvaluateResponse, BrowserError> {
         let sessions = self.sessions.read().await;
-        let session = sessions.get(session_name).ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
-        let handle = session.current_tab.as_ref().ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
+        let session = sessions
+            .get(session_name)
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
+        let handle = session
+            .current_tab
+            .as_ref()
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
 
         let wrapped = format!("(async () => {{ {} }})()", args.code);
 
@@ -393,10 +402,7 @@ impl BrowserManager {
         }
         .to_string();
 
-        Ok(EvaluateResponse {
-            result_type,
-            value,
-        })
+        Ok(EvaluateResponse { result_type, value })
     }
 
     // ========================================================================
@@ -410,12 +416,17 @@ impl BrowserManager {
         let path = args.validate_path(&self.config.screenshot_dir)?;
 
         let sessions = self.sessions.read().await;
-        let session = sessions.get(session_name).ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
-        let handle = session.current_tab.as_ref().ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
+        let session = sessions
+            .get(session_name)
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
+        let handle = session
+            .current_tab
+            .as_ref()
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
 
         let format_str = args.format.as_deref().unwrap_or("png");
         let quality = args.quality.unwrap_or(80);
@@ -476,12 +487,17 @@ impl BrowserManager {
         let path = args.validate_path(&self.config.pdf_dir)?;
 
         let sessions = self.sessions.read().await;
-        let session = sessions.get(session_name).ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
-        let handle = session.current_tab.as_ref().ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
+        let session = sessions
+            .get(session_name)
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
+        let handle = session
+            .current_tab
+            .as_ref()
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
 
         let paper_width = 8.5;
         let paper_height = 11.0;
@@ -542,9 +558,11 @@ impl BrowserManager {
     // ========================================================================
     pub async fn list_tabs(&self, session_name: &str) -> Result<TabsResponse, BrowserError> {
         let sessions = self.sessions.read().await;
-        let session = sessions.get(session_name).ok_or(BrowserError::TabNotFound {
-            session: session_name.into(),
-        })?;
+        let session = sessions
+            .get(session_name)
+            .ok_or(BrowserError::TabNotFound {
+                session: session_name.into(),
+            })?;
 
         let tabs: Vec<TabInfo> = session.tabs.values().cloned().collect();
 
@@ -568,9 +586,11 @@ impl BrowserManager {
         if let Some(handle) = session.current_tab.take() {
             let _ = handle
                 .page
-                .execute(chromiumoxide::cdp::browser_protocol::target::CloseTargetParams {
-                    target_id: handle.page.target_id().clone(),
-                })
+                .execute(
+                    chromiumoxide::cdp::browser_protocol::target::CloseTargetParams {
+                        target_id: handle.page.target_id().clone(),
+                    },
+                )
                 .await;
             session.tabs.remove(&handle.tab_id);
             Ok(CloseTabResponse {

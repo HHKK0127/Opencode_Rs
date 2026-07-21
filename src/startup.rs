@@ -1,7 +1,7 @@
-use std::env;
-use sqlx::AnyPool;
-use tracing::{info, warn};
 use crate::error::AppError;
+use sqlx::AnyPool;
+use std::env;
+use tracing::{info, warn};
 
 pub type DbPool = AnyPool;
 
@@ -15,14 +15,14 @@ pub struct EnvConfig {
 pub fn validate_environment() -> Result<EnvConfig, AppError> {
     info!("🔍 フェーズ 1: 環境変数検証中...");
 
-    let jwt_secret = env::var("JWT_SECRET").map_err(|_| {
-        AppError::BadRequest("JWT_SECRET が設定されていません".to_string())
-    })?;
+    let jwt_secret = env::var("JWT_SECRET")
+        .map_err(|_| AppError::BadRequest("JWT_SECRET が設定されていません".to_string()))?;
 
     if jwt_secret.len() < 32 {
-        return Err(AppError::BadRequest(
-            format!("JWT_SECRET は32文字以上である必要があります（現在: {}文字）", jwt_secret.len())
-        ));
+        return Err(AppError::BadRequest(format!(
+            "JWT_SECRET は32文字以上である必要があります（現在: {}文字）",
+            jwt_secret.len()
+        )));
     }
 
     // DATABASE_URL: PostgreSQL または SQLite フォールバック
@@ -31,19 +31,34 @@ pub fn validate_environment() -> Result<EnvConfig, AppError> {
         "sqlite://./poc_test.db".to_string()
     });
 
-    info!("✅ 環境変数検証完了 (DB: {})", 
-        if database_url.starts_with("sqlite://") { "SQLite" } else { "PostgreSQL" });
-    Ok(EnvConfig { jwt_secret, database_url })
+    info!(
+        "✅ 環境変数検証完了 (DB: {})",
+        if database_url.starts_with("sqlite://") {
+            "SQLite"
+        } else {
+            "PostgreSQL"
+        }
+    );
+    Ok(EnvConfig {
+        jwt_secret,
+        database_url,
+    })
 }
 
 /// フェーズ2: DB接続テスト
 pub async fn create_and_test_pool(db_url: &str) -> Result<DbPool, AppError> {
-    info!("🔍 フェーズ 2: DB接続テスト中 ({})...", 
-        if db_url.starts_with("sqlite://") { "SQLite" } else { "PostgreSQL" });
+    info!(
+        "🔍 フェーズ 2: DB接続テスト中 ({})...",
+        if db_url.starts_with("sqlite://") {
+            "SQLite"
+        } else {
+            "PostgreSQL"
+        }
+    );
 
     // AnyPool を使用して PostgreSQL/SQLite 両対応
     let pool = sqlx::any::AnyPoolOptions::new()
-        .max_connections(10)  // SQLite は単一スレッドのため低めに設定
+        .max_connections(10) // SQLite は単一スレッドのため低めに設定
         .min_connections(1)
         .connect(db_url)
         .await
@@ -53,13 +68,10 @@ pub async fn create_and_test_pool(db_url: &str) -> Result<DbPool, AppError> {
         })?;
 
     // 接続テスト
-    sqlx::query("SELECT 1")
-        .execute(&pool)
-        .await
-        .map_err(|e| {
-            warn!("❌ 接続テストクエリ失敗: {}", e);
-            AppError::Database(format!("接続テスト失敗: {}", e))
-        })?;
+    sqlx::query("SELECT 1").execute(&pool).await.map_err(|e| {
+        warn!("❌ 接続テストクエリ失敗: {}", e);
+        AppError::Database(format!("接続テスト失敗: {}", e))
+    })?;
 
     info!("✅ DB接続テスト完了");
     Ok(pool)

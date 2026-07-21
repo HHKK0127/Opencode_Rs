@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse};
+use actix_web::HttpResponse;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -21,9 +21,7 @@ pub async fn global_config() -> HttpResponse {
 }
 
 pub async fn get_config() -> HttpResponse {
-    HttpResponse::Ok().json(ConfigResponse {
-        providers: vec![],
-    })
+    HttpResponse::Ok().json(ConfigResponse { providers: vec![] })
 }
 
 pub async fn config_providers() -> HttpResponse {

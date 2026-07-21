@@ -9,14 +9,13 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
-use crate::cache::{compaction_notice, PromptCache, CompactionStrategy};
+use crate::cache::{compaction_notice, CompactionStrategy, PromptCache};
 use crate::error::LlmResult;
 use crate::permissions::{PermissionDecision, PermissionEnforcer};
 use crate::providers::Provider;
 use crate::tools::{ToolContext, ToolExecutor, ToolSpec};
 use crate::types::{
-    InputContentBlock, InputMessage, MessageRequest, OutputContentBlock,
-    ToolResultContentBlock,
+    InputContentBlock, InputMessage, MessageRequest, OutputContentBlock, ToolResultContentBlock,
 };
 
 /// Maximum number of tool-call rounds before giving up.
@@ -146,12 +145,12 @@ impl ConversationRuntimeBuilder {
             tools: self.tools,
             executors: self.executors,
             tool_context: self.tool_context,
-                permission_enforcer: None,
-                max_tool_rounds: self.max_tool_rounds,
-                prompt_cache: self.prompt_cache,
-                history: Arc::new(Mutex::new(Vec::new())),
-            }
+            permission_enforcer: None,
+            max_tool_rounds: self.max_tool_rounds,
+            prompt_cache: self.prompt_cache,
+            history: Arc::new(Mutex::new(Vec::new())),
         }
+    }
 }
 
 /// Multi-turn conversation runtime.
@@ -161,27 +160,27 @@ pub struct ConversationRuntime<P: Provider + 'static> {
     model: Option<String>,
     max_tokens: u32,
     temperature: Option<f64>,
-        top_p: Option<f64>,
+    top_p: Option<f64>,
     tools: Vec<ToolSpec>,
     executors: BTreeMap<String, ToolExecutor>,
     tool_context: ToolContext,
     permission_enforcer: Option<Arc<PermissionEnforcer>>,
     max_tool_rounds: usize,
-        history: Arc<Mutex<Vec<InputMessage>>>,
-        prompt_cache: Option<PromptCache>,
+    history: Arc<Mutex<Vec<InputMessage>>>,
+    prompt_cache: Option<PromptCache>,
 }
 
-    impl<P: Provider + 'static> ConversationRuntime<P> {
-        /// Access the builder.
-        pub fn builder() -> ConversationRuntimeBuilder {
-            ConversationRuntimeBuilder::new()
-        }
+impl<P: Provider + 'static> ConversationRuntime<P> {
+    /// Access the builder.
+    pub fn builder() -> ConversationRuntimeBuilder {
+        ConversationRuntimeBuilder::new()
+    }
 
-        /// Set a permission enforcer (must be called before run).
-        pub fn with_permissions(mut self, enf: Arc<PermissionEnforcer>) -> Self {
-            self.permission_enforcer = Some(enf);
-            self
-        }
+    /// Set a permission enforcer (must be called before run).
+    pub fn with_permissions(mut self, enf: Arc<PermissionEnforcer>) -> Self {
+        self.permission_enforcer = Some(enf);
+        self
+    }
 
     /// Run a single user-turn, executing tool calls automatically until the
     /// model produces a final text response.
@@ -231,13 +230,14 @@ pub struct ConversationRuntime<P: Provider + 'static> {
             }
 
             if tool_calls.is_empty() {
-                info!(round, tool_calls=0, "conversation finished");
+                info!(round, tool_calls = 0, "conversation finished");
                 break; // No tool calls → final answer.
             }
 
-            info!(round, tool_calls=tool_calls.len(), "executing tool calls");
+            info!(round, tool_calls = tool_calls.len(), "executing tool calls");
 
-            self.execute_tool_calls_inner(&tool_calls, &mut accumulated_text).await;
+            self.execute_tool_calls_inner(&tool_calls, &mut accumulated_text)
+                .await;
         }
 
         Ok(accumulated_text)
@@ -283,12 +283,13 @@ pub struct ConversationRuntime<P: Provider + 'static> {
                 while let Some(event) = stream.next().await {
                     let event = event?;
                     match &event {
-                        crate::events::StreamEvent::ContentBlockDelta { delta, .. } => {
-                            if let crate::events::ContentDelta::TextDelta { text } = delta {
-                                current_block_text.push_str(text);
-                                accumulated_text.push_str(text);
-                                let _ = tx.send(text.clone());
-                            }
+                        crate::events::StreamEvent::ContentBlockDelta {
+                            delta: crate::events::ContentDelta::TextDelta { text },
+                            ..
+                        } => {
+                            current_block_text.push_str(text);
+                            accumulated_text.push_str(text);
+                            let _ = tx.send(text.clone());
                         }
                         crate::events::StreamEvent::ContentBlockStop { .. } => {
                             if !current_block_text.is_empty() {
@@ -330,12 +331,17 @@ pub struct ConversationRuntime<P: Provider + 'static> {
                 }
 
                 if tool_calls.is_empty() {
-                    info!(round, tool_calls=0, "conversation finished (streaming)");
+                    info!(round, tool_calls = 0, "conversation finished (streaming)");
                     break;
                 }
 
-                info!(round, tool_calls=tool_calls.len(), "executing tool calls (post-stream)");
-                self.execute_tool_calls_inner(&tool_calls, &mut accumulated_text).await;
+                info!(
+                    round,
+                    tool_calls = tool_calls.len(),
+                    "executing tool calls (post-stream)"
+                );
+                self.execute_tool_calls_inner(&tool_calls, &mut accumulated_text)
+                    .await;
             } else {
                 // Non-streaming rounds (tool results → model).
                 let request = self.build_request()?;
@@ -359,12 +365,17 @@ pub struct ConversationRuntime<P: Provider + 'static> {
                 }
 
                 if tool_calls.is_empty() {
-                    info!(round, tool_calls=0, "conversation finished (non-streaming)");
+                    info!(
+                        round,
+                        tool_calls = 0,
+                        "conversation finished (non-streaming)"
+                    );
                     break;
                 }
 
-                info!(round, tool_calls=tool_calls.len(), "executing tool calls");
-                self.execute_tool_calls_inner(&tool_calls, &mut accumulated_text).await;
+                info!(round, tool_calls = tool_calls.len(), "executing tool calls");
+                self.execute_tool_calls_inner(&tool_calls, &mut accumulated_text)
+                    .await;
             }
         }
 
@@ -388,7 +399,10 @@ pub struct ConversationRuntime<P: Provider + 'static> {
                         });
                         continue;
                     }
-                    PermissionDecision::NeedsConfirmation { target, description } => {
+                    PermissionDecision::NeedsConfirmation {
+                        target,
+                        description,
+                    } => {
                         results.push(ToolResultContentBlock::Text {
                             text: format!("[permission needed: `{target}` — {description}]"),
                         });
@@ -469,6 +483,7 @@ pub struct ConversationRuntime<P: Provider + 'static> {
         }
     }
 
+    #[allow(dead_code)]
     /// Record a message in the prompt cache (estimates tokens).
     fn maybe_record_message(&self, msg: &str) {
         if let Some(ref cache) = self.prompt_cache {
@@ -501,7 +516,10 @@ pub struct ConversationRuntime<P: Provider + 'static> {
         }
         // Replace history with a compacted system message + recent messages.
         let notice = compaction_notice(&blocks);
-        let compact_msg = InputMessage::new("user", vec![crate::types::InputContentBlock::Text { text: notice }]);
+        let compact_msg = InputMessage::new(
+            "user",
+            vec![crate::types::InputContentBlock::Text { text: notice }],
+        );
         let mut hist = self.history.lock().await;
         let keep_from = hist.len().saturating_sub(preserve);
         let recent: Vec<InputMessage> = hist.drain(keep_from..).collect();

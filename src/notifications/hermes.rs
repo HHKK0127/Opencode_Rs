@@ -48,6 +48,12 @@ pub struct HermesAnalytics {
     user_activity: Arc<RwLock<HashMap<String, u64>>>,
 }
 
+impl Default for HermesAnalytics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HermesAnalytics {
     pub fn new() -> Self {
         Self {
@@ -90,7 +96,7 @@ impl HermesAnalytics {
             .map(|(user, count)| (user.clone(), *count))
             .collect();
 
-        users.sort_by(|a, b| b.1.cmp(&a.1));
+        users.sort_by_key(|a| std::cmp::Reverse(a.1));
         users.into_iter().take(limit).collect()
     }
 
@@ -138,7 +144,7 @@ impl HermesAnalytics {
             .iter()
             .map(|(user, count)| (user.clone(), *count))
             .collect();
-        top_users.sort_by(|a, b| b.1.cmp(&a.1));
+        top_users.sort_by_key(|a| std::cmp::Reverse(a.1));
         report.top_users = top_users.into_iter().take(10).collect();
 
         // Add performance metrics
@@ -152,7 +158,10 @@ impl HermesAnalytics {
                 .insert("total_users".to_string(), activity.len() as f64);
         }
 
-        info!("Analytics report generated: {} events in {} hours", report.total_events, period_hours);
+        info!(
+            "Analytics report generated: {} events in {} hours",
+            report.total_events, period_hours
+        );
         report
     }
 

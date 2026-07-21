@@ -1,4 +1,5 @@
 #[cfg(test)]
+#[cfg(feature = "postgres")]
 mod integration_tests {
     use crate::app_state::AppState;
     use crate::config::Settings;
@@ -8,11 +9,11 @@ mod integration_tests {
 
     async fn create_test_app_state() -> AppState {
         let settings = Settings::default();
-        let db_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://postgres:postgres@localhost:5432/opencode_test".to_string()
+        });
 
-        let db = sqlx::postgres::PgPool::connect_lazy(&db_url)
-            .expect("Failed to build lazy pool");
+        let db = sqlx::postgres::PgPool::connect_lazy(&db_url).expect("Failed to build lazy pool");
 
         let storage = Arc::new(LocalStorageBackend::new("./uploads"));
         AppState::new(settings, db, storage, None)

@@ -78,7 +78,10 @@ impl QueryOptimizer {
         // Update estimated cost based on optimizations
         plan.estimated_cost = 100.0 - (plan.optimization_applied.len() as f64 * 15.0);
 
-        info!("Query optimized: {} optimizations applied", plan.optimization_applied.len());
+        info!(
+            "Query optimized: {} optimizations applied",
+            plan.optimization_applied.len()
+        );
         plan
     }
 
@@ -120,7 +123,10 @@ mod tests {
             "SELECT * FROM files WHERE user_id = 123".to_string(),
         );
 
-        assert_eq!(plan.original_query, "SELECT * FROM files WHERE user_id = 123");
+        assert_eq!(
+            plan.original_query,
+            "SELECT * FROM files WHERE user_id = 123"
+        );
         assert_eq!(plan.optimization_applied.len(), 0);
     }
 

@@ -69,7 +69,7 @@ impl MetricsCollector {
 
         let metric = MetricValue { timestamp, value };
 
-        let entry = self.metrics.entry(name).or_insert_with(Vec::new);
+        let entry = self.metrics.entry(name).or_default();
         entry.push(metric);
 
         // Keep only recent entries
@@ -131,7 +131,7 @@ impl MetricsCollector {
     pub fn get_summary(&self) -> HashMap<String, f64> {
         let mut summary = HashMap::new();
 
-        for (name, _) in &self.metrics {
+        for name in self.metrics.keys() {
             if let Some(avg) = self.get_average(name) {
                 summary.insert(name.clone(), avg);
             }

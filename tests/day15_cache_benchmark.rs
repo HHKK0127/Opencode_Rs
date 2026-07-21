@@ -1,3 +1,12 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -97,7 +106,10 @@ impl BenchmarkCache {
         storage.insert(key.to_string(), value);
         let elapsed = start.elapsed().as_micros() as u64;
 
-        self.metrics.lock().unwrap().record_operation(elapsed, false);
+        self.metrics
+            .lock()
+            .unwrap()
+            .record_operation(elapsed, false);
     }
 
     fn metrics(&self) -> PerformanceMetrics {

@@ -1,20 +1,19 @@
+#![cfg(feature = "postgres")]
+
 /// Wave 5 Final Smoke Tests — production readiness gate (Wave 1-5)
 use actix_web::{test, web, App};
 use opencode_poc::{
-    api,
-    app_state::AppState,
-    auth_middleware::AuthMiddleware,
-    config::Settings,
-    middleware::RequestId,
-    middleware_cors::configure_cors,
+    api, app_state::AppState, auth_middleware::AuthMiddleware, config::Settings,
+    middleware::RequestId, middleware_cors::configure_cors,
     storage::local_backend::LocalStorageBackend,
 };
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 
 async fn create_state() -> AppState {
-    let db_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+    let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://postgres:postgres@localhost:5432/opencode_test".to_string()
+    });
 
     let pool = PgPool::connect(&db_url)
         .await
@@ -101,7 +100,10 @@ async fn smoke_register_and_login() {
         .set_json(serde_json::json!({"username": username, "password": "SmokePass123!"}))
         .to_request();
     let body: serde_json::Value = test::call_and_read_body_json(&app, req).await;
-    assert!(body["token"].as_str().is_some(), "no token in login response");
+    assert!(
+        body["token"].as_str().is_some(),
+        "no token in login response"
+    );
 }
 
 #[actix_rt::test]
@@ -120,7 +122,11 @@ async fn smoke_invalid_login_returns_401() {
         .set_json(serde_json::json!({"username": "nobody", "password": "wrong"}))
         .to_request();
     let status = test::call_service(&app, req).await.status().as_u16();
-    assert!(status == 400 || status == 401, "expected 4xx, got {}", status);
+    assert!(
+        status == 400 || status == 401,
+        "expected 4xx, got {}",
+        status
+    );
 }
 
 #[actix_rt::test]
@@ -134,9 +140,7 @@ async fn smoke_protected_endpoint_requires_auth() {
     )
     .await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v1/files")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v1/files").to_request();
     assert_eq!(test::call_service(&app, req).await.status(), 401);
 }
 
@@ -218,10 +222,20 @@ async fn smoke_all_health_endpoints_return_200() {
     )
     .await;
 
-    for path in ["/api/v1/health", "/api/v1/health/ready", "/api/v1/health/live", "/api/v1/health/db"] {
+    for path in [
+        "/api/v1/health",
+        "/api/v1/health/ready",
+        "/api/v1/health/live",
+        "/api/v1/health/db",
+    ] {
         let req = test::TestRequest::get().uri(path).to_request();
         let status = test::call_service(&app, req).await.status();
-        assert!(status.is_success(), "{} returned {} (no auth required)", path, status);
+        assert!(
+            status.is_success(),
+            "{} returned {} (no auth required)",
+            path,
+            status
+        );
     }
 }
 
@@ -264,7 +278,11 @@ async fn smoke_request_id_client_propagated() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(
-        resp.headers().get("x-request-id").unwrap().to_str().unwrap(),
+        resp.headers()
+            .get("x-request-id")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "my-trace-abc"
     );
 }

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use lazy_static::lazy_static;
 use prometheus::{Counter, Histogram, HistogramOpts, IntCounter, IntGauge};
 
@@ -15,7 +16,7 @@ lazy_static! {
     pub static ref STORAGE_OPERATION_DURATION: Histogram = {
         let opts = HistogramOpts::new(
             "storage_operation_duration_seconds",
-            "Storage operation duration"
+            "Storage operation duration",
         );
         Histogram::with_opts(opts).unwrap()
     };
@@ -27,6 +28,12 @@ pub struct StorageMetrics {
     pub total_deletes: u64,
     pub error_count: u64,
     pub average_latency_ms: f64,
+}
+
+impl Default for StorageMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StorageMetrics {

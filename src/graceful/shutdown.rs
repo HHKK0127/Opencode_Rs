@@ -1,8 +1,9 @@
+#![allow(dead_code)]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::time::{timeout, Duration};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// Signal for graceful shutdown
 #[derive(Debug, Clone)]
@@ -89,7 +90,10 @@ impl GracefulShutdown {
     where
         F: std::future::Future<Output = Result<(), String>>,
     {
-        info!("Starting graceful shutdown sequence (timeout: {:?})", self.shutdown_timeout);
+        info!(
+            "Starting graceful shutdown sequence (timeout: {:?})",
+            self.shutdown_timeout
+        );
 
         match timeout(self.shutdown_timeout, shutdown_fn).await {
             Ok(Ok(())) => {
@@ -101,7 +105,10 @@ impl GracefulShutdown {
                 Err(e)
             }
             Err(_) => {
-                error!("Graceful shutdown timeout after {:?}", self.shutdown_timeout);
+                error!(
+                    "Graceful shutdown timeout after {:?}",
+                    self.shutdown_timeout
+                );
                 Err("Shutdown timeout".to_string())
             }
         }

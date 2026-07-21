@@ -64,8 +64,7 @@ impl SessionStorage {
     /// The directory is created if it doesn't exist.
     pub fn new(base_dir: impl Into<PathBuf>) -> LlmResult<Self> {
         let base_dir = base_dir.into();
-        std::fs::create_dir_all(&base_dir)
-            .map_err(|e| LlmError::Io(e))?;
+        std::fs::create_dir_all(&base_dir).map_err(LlmError::Io)?;
         Ok(Self {
             base_dir,
             session_name: "session".to_string(),
@@ -86,16 +85,14 @@ impl SessionStorage {
     /// Append a single entry to the session file.
     pub fn append(&self, entry: &SessionEntry) -> LlmResult<()> {
         let path = self.session_path();
-        let line = serde_json::to_string(entry)
-            .map_err(|e| LlmError::Json(e))?;
+        let line = serde_json::to_string(entry).map_err(LlmError::Json)?;
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(&path)
-            .map_err(|e| LlmError::Io(e))?;
+            .map_err(LlmError::Io)?;
         use std::io::Write;
-        writeln!(file, "{line}")
-            .map_err(|e| LlmError::Io(e))?;
+        writeln!(file, "{line}").map_err(LlmError::Io)?;
         Ok(())
     }
 
@@ -107,16 +104,14 @@ impl SessionStorage {
         if !path.exists() {
             return Ok(Vec::new());
         }
-        let content = std::fs::read_to_string(&path)
-            .map_err(|e| LlmError::Io(e))?;
+        let content = std::fs::read_to_string(&path).map_err(LlmError::Io)?;
         let mut entries = Vec::new();
         for line in content.lines() {
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;
             }
-            let entry: SessionEntry = serde_json::from_str(trimmed)
-                .map_err(|e| LlmError::Json(e))?;
+            let entry: SessionEntry = serde_json::from_str(trimmed).map_err(LlmError::Json)?;
             entries.push(entry);
         }
         Ok(entries)
@@ -125,14 +120,11 @@ impl SessionStorage {
     /// Overwrite the session file with the given entries.
     pub fn write_all(&self, entries: &[SessionEntry]) -> LlmResult<()> {
         let path = self.session_path();
-        let mut file = std::fs::File::create(&path)
-            .map_err(|e| LlmError::Io(e))?;
+        let mut file = std::fs::File::create(&path).map_err(LlmError::Io)?;
         use std::io::Write;
         for entry in entries {
-            let line = serde_json::to_string(entry)
-                .map_err(|e| LlmError::Json(e))?;
-            writeln!(file, "{line}")
-                .map_err(|e| LlmError::Io(e))?;
+            let line = serde_json::to_string(entry).map_err(LlmError::Json)?;
+            writeln!(file, "{line}").map_err(LlmError::Io)?;
         }
         Ok(())
     }
@@ -141,8 +133,7 @@ impl SessionStorage {
     pub fn delete(&self) -> LlmResult<()> {
         let path = self.session_path();
         if path.exists() {
-            std::fs::remove_file(&path)
-                .map_err(|e| LlmError::Io(e))?;
+            std::fs::remove_file(&path).map_err(LlmError::Io)?;
         }
         Ok(())
     }
@@ -150,12 +141,10 @@ impl SessionStorage {
     /// List all session files in the storage directory.
     pub fn list_sessions(&self) -> LlmResult<Vec<String>> {
         let mut sessions = Vec::new();
-        for entry in std::fs::read_dir(&self.base_dir)
-            .map_err(|e| LlmError::Io(e))?
-        {
-            let entry = entry.map_err(|e| LlmError::Io(e))?;
+        for entry in std::fs::read_dir(&self.base_dir).map_err(LlmError::Io)? {
+            let entry = entry.map_err(LlmError::Io)?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "jsonl") {
+            if path.extension().is_some_and(|ext| ext == "jsonl") {
                 if let Some(stem) = path.file_stem() {
                     sessions.push(stem.to_string_lossy().to_string());
                 }
@@ -191,16 +180,14 @@ pub fn default_session_storage() -> LlmResult<SessionStorage> {
 /// Load a session from a JSONL file path.
 pub fn load_session_file(path: impl AsRef<Path>) -> LlmResult<Vec<SessionEntry>> {
     let path = path.as_ref();
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| LlmError::Io(e))?;
+    let content = std::fs::read_to_string(path).map_err(LlmError::Io)?;
     let mut entries = Vec::new();
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             continue;
         }
-        let entry: SessionEntry = serde_json::from_str(trimmed)
-            .map_err(|e| LlmError::Json(e))?;
+        let entry: SessionEntry = serde_json::from_str(trimmed).map_err(LlmError::Json)?;
         entries.push(entry);
     }
     Ok(entries)
@@ -210,13 +197,10 @@ pub fn load_session_file(path: impl AsRef<Path>) -> LlmResult<Vec<SessionEntry>>
 pub fn save_session_file(path: impl AsRef<Path>, entries: &[SessionEntry]) -> LlmResult<()> {
     use std::io::Write;
     let path = path.as_ref();
-    let mut file = std::fs::File::create(path)
-        .map_err(|e| LlmError::Io(e))?;
+    let mut file = std::fs::File::create(path).map_err(LlmError::Io)?;
     for entry in entries {
-        let line = serde_json::to_string(entry)
-            .map_err(|e| LlmError::Json(e))?;
-        writeln!(file, "{line}")
-            .map_err(|e| LlmError::Io(e))?;
+        let line = serde_json::to_string(entry).map_err(LlmError::Json)?;
+        writeln!(file, "{line}").map_err(LlmError::Io)?;
     }
     Ok(())
 }
@@ -232,8 +216,12 @@ mod tests {
 
         let storage = SessionStorage::new(&dir).unwrap();
         storage.append(&SessionEntry::user("Hello")).unwrap();
-        storage.append(&SessionEntry::assistant("Hi there!")).unwrap();
-        storage.append(&SessionEntry::system("System message")).unwrap();
+        storage
+            .append(&SessionEntry::assistant("Hi there!"))
+            .unwrap();
+        storage
+            .append(&SessionEntry::system("System message"))
+            .unwrap();
 
         let entries = storage.read_all().unwrap();
         assert_eq!(entries.len(), 3);

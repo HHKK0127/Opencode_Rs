@@ -1,3 +1,12 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
 use reqwest::Client;
 use serde_json::Value;
 
@@ -14,17 +23,20 @@ async fn get_token(client: &Client) -> String {
         .await
         .expect("Login request failed");
     let body: Value = resp.json().await.unwrap();
-    body["token"].as_str().expect("No token in login response").to_string()
+    body["token"]
+        .as_str()
+        .expect("No token in login response")
+        .to_string()
 }
 
 async fn upload_file(client: &Client, token: &str, filename: &str, content: Vec<u8>) -> String {
     let resp = client
         .post(&format!("{}/files/upload", API_BASE))
         .header("Authorization", format!("Bearer {}", token))
-        .multipart(
-            reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(content).file_name(filename.to_string()))
-        )
+        .multipart(reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(content).file_name(filename.to_string()),
+        ))
         .send()
         .await
         .expect("Upload failed");
@@ -149,7 +161,10 @@ async fn test_search_files_by_mime_type() {
     let token = get_token(&client).await;
 
     let search_resp = client
-        .get(&format!("{}/files/search?mime_type=application/pdf", API_BASE))
+        .get(&format!(
+            "{}/files/search?mime_type=application/pdf",
+            API_BASE
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
@@ -167,7 +182,10 @@ async fn test_search_files_by_size_range() {
     let token = get_token(&client).await;
 
     let search_resp = client
-        .get(&format!("{}/files/search?size_min=1&size_max=10000000", API_BASE))
+        .get(&format!(
+            "{}/files/search?size_min=1&size_max=10000000",
+            API_BASE
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await

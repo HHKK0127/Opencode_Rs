@@ -14,6 +14,10 @@ version = "0.1.0"
 edition = "2021"
 autobins = false
 
+[features]
+default = []
+postgres = []
+
 [dependencies]
 # Web Framework
 actix-web = "4.5"
@@ -24,6 +28,7 @@ ratatui = "0.28"
 crossterm = "0.28"
 pulldown-cmark = "0.13"
 unicode-width = "0.2"
+syntect = "5.1"
 reqwest = { version = "0.11", features = ["json", "blocking"] }
 
 # Database
@@ -60,6 +65,8 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 log = "0.4"
+dirs = "5.0"
+ctrlc = "3.4"
 
 # CORS & Rate Limiting
 actix-cors = "0.7"

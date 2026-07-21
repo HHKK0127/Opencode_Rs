@@ -2,32 +2,28 @@ use actix_web::{get, post, web, HttpResponse};
 use serde_json::json;
 
 use crate::app_state::AppState;
-use crate::error::AppResult;
 use crate::db;
 use crate::db::MigrationCli;
+use crate::error::AppResult;
 
 /// Database health and optimization endpoint
 /// Requires authentication
 #[get("/admin/db/status")]
 pub async fn db_status(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
     match db::get_database_stats(&app_state.db).await {
-        Ok(stats) => {
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "healthy",
-                "database": {
-                    "size_mb": stats.total_size_bytes as f64 / (1024.0 * 1024.0),
-                    "page_count": stats.page_count,
-                    "page_size": stats.page_size,
-                    "journal_mode": stats.journal_mode
-                }
-            })))
-        }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "status": "error",
-                "error": e.to_string()
-            })))
-        }
+        Ok(stats) => Ok(HttpResponse::Ok().json(json!({
+            "status": "healthy",
+            "database": {
+                "size_mb": stats.total_size_bytes as f64 / (1024.0 * 1024.0),
+                "page_count": stats.page_count,
+                "page_size": stats.page_size,
+                "journal_mode": stats.journal_mode
+            }
+        }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "status": "error",
+            "error": e.to_string()
+        }))),
     }
 }
 
@@ -37,27 +33,28 @@ pub async fn db_status(app_state: web::Data<AppState>) -> AppResult<HttpResponse
 pub async fn migration_history(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
     match db::get_migration_history(&app_state.db).await {
         Ok(migrations) => {
-            let records: Vec<_> = migrations.iter().map(|m| {
-                json!({
-                    "version": m.version,
-                    "description": m.description,
-                    "installed_on": m.installed_on,
-                    "execution_time_ms": m.execution_time,
-                    "success": m.success
+            let records: Vec<_> = migrations
+                .iter()
+                .map(|m| {
+                    json!({
+                        "version": m.version,
+                        "description": m.description,
+                        "installed_on": m.installed_on,
+                        "execution_time_ms": m.execution_time,
+                        "success": m.success
+                    })
                 })
-            }).collect();
+                .collect();
 
             Ok(HttpResponse::Ok().json(json!({
                 "status": "success",
                 "migrations": records
             })))
         }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "status": "error",
-                "error": e.to_string()
-            })))
-        }
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "status": "error",
+            "error": e.to_string()
+        }))),
     }
 }
 
@@ -66,18 +63,14 @@ pub async fn migration_history(app_state: web::Data<AppState>) -> AppResult<Http
 #[get("/admin/db/analyze")]
 pub async fn analyze_database(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
     match db::analyze_tables(&app_state.db).await {
-        Ok(_) => {
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "success",
-                "message": "Database analysis completed"
-            })))
-        }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "status": "error",
-                "error": e.to_string()
-            })))
-        }
+        Ok(_) => Ok(HttpResponse::Ok().json(json!({
+            "status": "success",
+            "message": "Database analysis completed"
+        }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "status": "error",
+            "error": e.to_string()
+        }))),
     }
 }
 
@@ -86,18 +79,14 @@ pub async fn analyze_database(app_state: web::Data<AppState>) -> AppResult<HttpR
 #[get("/admin/db/vacuum")]
 pub async fn vacuum_database(app_state: web::Data<AppState>) -> AppResult<HttpResponse> {
     match db::vacuum_database(&app_state.db).await {
-        Ok(_) => {
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "success",
-                "message": "Database vacuum completed"
-            })))
-        }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "status": "error",
-                "error": e.to_string()
-            })))
-        }
+        Ok(_) => Ok(HttpResponse::Ok().json(json!({
+            "status": "success",
+            "message": "Database vacuum completed"
+        }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "status": "error",
+            "error": e.to_string()
+        }))),
     }
 }
 
@@ -108,19 +97,15 @@ pub async fn run_migrations(app_state: web::Data<AppState>) -> AppResult<HttpRes
     let database_url = app_state.settings.database.url.clone();
 
     match MigrationCli::run_migrations(&database_url) {
-        Ok(output) => {
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "success",
-                "message": "Migrations completed successfully",
-                "output": output
-            })))
-        }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "status": "error",
-                "error": e.to_string()
-            })))
-        }
+        Ok(output) => Ok(HttpResponse::Ok().json(json!({
+            "status": "success",
+            "message": "Migrations completed successfully",
+            "output": output
+        }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "status": "error",
+            "error": e.to_string()
+        }))),
     }
 }
 
@@ -131,19 +116,15 @@ pub async fn revert_migration(app_state: web::Data<AppState>) -> AppResult<HttpR
     let database_url = app_state.settings.database.url.clone();
 
     match MigrationCli::revert_migration(&database_url) {
-        Ok(output) => {
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "success",
-                "message": "Last migration reverted",
-                "output": output
-            })))
-        }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "status": "error",
-                "error": e.to_string()
-            })))
-        }
+        Ok(output) => Ok(HttpResponse::Ok().json(json!({
+            "status": "success",
+            "message": "Last migration reverted",
+            "output": output
+        }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "status": "error",
+            "error": e.to_string()
+        }))),
     }
 }
 
@@ -154,18 +135,14 @@ pub async fn migration_info(app_state: web::Data<AppState>) -> AppResult<HttpRes
     let database_url = app_state.settings.database.url.clone();
 
     match MigrationCli::migration_info(&database_url) {
-        Ok(info) => {
-            Ok(HttpResponse::Ok().json(json!({
-                "status": "success",
-                "information": info
-            })))
-        }
-        Err(e) => {
-            Ok(HttpResponse::InternalServerError().json(json!({
-                "status": "error",
-                "error": e.to_string()
-            })))
-        }
+        Ok(info) => Ok(HttpResponse::Ok().json(json!({
+            "status": "success",
+            "information": info
+        }))),
+        Err(e) => Ok(HttpResponse::InternalServerError().json(json!({
+            "status": "error",
+            "error": e.to_string()
+        }))),
     }
 }
 

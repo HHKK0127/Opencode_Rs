@@ -119,7 +119,11 @@ impl MemoryManager {
 
         format!(
             "Heap: {:.1}/{:.1}MB ({}%), Cache: {:.1}MB, Connections: {}",
-            stats.heap_used_mb, stats.heap_total_mb, pressure_percent, stats.cache_size_mb, stats.connection_count
+            stats.heap_used_mb,
+            stats.heap_total_mb,
+            pressure_percent,
+            stats.cache_size_mb,
+            stats.connection_count
         )
     }
 }

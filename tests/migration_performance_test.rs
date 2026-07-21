@@ -1,3 +1,13 @@
+#![cfg(feature = "postgres")]
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
 // Migration & Performance Tests (PostgreSQL + S3Cache)
 //
 // Migrated from tests/legacy/migration_performance_test.rs
@@ -87,7 +97,10 @@ async fn test_migration_dry_run() {
     // Since tests run in parallel and share the database, we only verify
     // the dry-run query path executes without inserting anything.
     assert!(file_count.0 >= 0, "File count should be non-negative");
-    println!("✅ Test 4: Dry-run mode (no DB changes). Current count: {}", file_count.0);
+    println!(
+        "✅ Test 4: Dry-run mode (no DB changes). Current count: {}",
+        file_count.0
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +146,9 @@ async fn test_s3_cache_hit_performance() {
     let cache = S3Cache::new(3600); // 1 hour TTL
 
     // Set cache entry
-    cache.set("test-key".to_string(), "etag-123".to_string()).await;
+    cache
+        .set("test-key".to_string(), "etag-123".to_string())
+        .await;
 
     let cache_get_start = Instant::now();
     let entry = cache.get("test-key").await;
@@ -162,7 +177,9 @@ async fn test_s3_cache_hit_performance() {
 async fn test_cache_expiration() {
     let _pool = fixtures::setup_test_db().await;
     let cache = S3Cache::new(-1); // Already expired
-    cache.set("expired-key".to_string(), "etag-456".to_string()).await;
+    cache
+        .set("expired-key".to_string(), "etag-456".to_string())
+        .await;
 
     // Expired entry should return None
     let entry = cache.get("expired-key").await;

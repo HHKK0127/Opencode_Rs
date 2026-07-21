@@ -1,17 +1,18 @@
-use actix_web::{post, get, web, HttpResponse};
+#![allow(dead_code)]
 use actix_multipart::Multipart;
+use actix_web::{get, post, web, HttpResponse};
+use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::path::PathBuf;
-use sha2::{Sha256, Digest};
-use futures::TryStreamExt;
 use tempfile::NamedTempFile;
-use tracing::{info, warn, error};
 use tokio::io::AsyncWriteExt;
+use tracing::{error, info, warn};
+use uuid::Uuid;
 
-use crate::error::{AppError, AppResult};
 use crate::app_state::AppState;
+use crate::error::{AppError, AppResult};
 
 #[derive(Debug, Deserialize)]
 pub struct InitChunkedUploadRequest {
@@ -64,17 +65,19 @@ pub async fn init_chunked_upload(
         return Err(AppError::BadRequest("Invalid file size".to_string()));
     }
     if req.chunk_size == 0 || req.chunk_size > 100 * 1024 * 1024 {
-        return Err(AppError::BadRequest("Invalid chunk size (max 100MB)".to_string()));
+        return Err(AppError::BadRequest(
+            "Invalid chunk size (max 100MB)".to_string(),
+        ));
     }
 
     let max_file_size = app_state.settings.upload.max_file_size_mb * 1024 * 1024;
 
     if req.total_size > max_file_size as i64 {
-        return Err(AppError::BadRequest(
-            format!("File size {} exceeds limit of {}MB",
-                req.total_size,
-                max_file_size / 1024 / 1024)
-        ));
+        return Err(AppError::BadRequest(format!(
+            "File size {} exceeds limit of {}MB",
+            req.total_size,
+            max_file_size / 1024 / 1024
+        )));
     }
 
     let session_id = Uuid::new_v4().to_string();
@@ -82,7 +85,7 @@ pub async fn init_chunked_upload(
 
     sqlx::query(
         "INSERT INTO upload_sessions (id, file_id, total_size, uploaded_size, chunk_size, status)
-         VALUES ($1, $2, $3, $4, $5, $6)"
+         VALUES ($1, $2, $3, $4, $5, $6)",
     )
     .bind(&session_id)
     .bind(&file_id)
@@ -94,7 +97,10 @@ pub async fn init_chunked_upload(
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;
 
-    info!("Chunked upload initialized: session={}, file={}", session_id, file_id);
+    info!(
+        "Chunked upload initialized: session={}, file={}",
+        session_id, file_id
+    );
 
     Ok(HttpResponse::Ok().json(InitChunkedUploadResponse {
         session_id,
@@ -119,7 +125,7 @@ pub async fn upload_chunk(
     .fetch_optional(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?
-    .ok_or_else(|| AppError::NotFound)?;
+    .ok_or(AppError::NotFound)?;
 
     let (_, file_id, total_size, uploaded_size, chunk_size) = session;
 
@@ -157,12 +163,14 @@ pub async fn upload_chunk(
 
     let new_uploaded_size = uploaded_size + chunk_data.len() as i64;
     if new_uploaded_size > total_size {
-        return Err(AppError::BadRequest("Upload exceeds total size".to_string()));
+        return Err(AppError::BadRequest(
+            "Upload exceeds total size".to_string(),
+        ));
     }
 
     // === RAIIパターンによる一時ファイル管理 ===
     let chunk_path = temp_dir.join(format!("chunk-{}", chunk_index));
-    
+
     // NamedTempFileを使用（Drop時に自動削除）
     let temp_file = match NamedTempFile::new_in(&temp_dir) {
         Ok(f) => f,
@@ -186,13 +194,11 @@ pub async fn upload_chunk(
     }
 
     // DB更新（トランザクション）
-    match sqlx::query(
-        "UPDATE upload_sessions SET uploaded_size = $1 WHERE id = $2"
-    )
-    .bind(new_uploaded_size)
-    .bind(&session_id)
-    .execute(&app_state.db)
-    .await
+    match sqlx::query("UPDATE upload_sessions SET uploaded_size = $1 WHERE id = $2")
+        .bind(new_uploaded_size)
+        .bind(&session_id)
+        .execute(&app_state.db)
+        .await
     {
         Ok(_) => {
             // 成功：一時ファイルを永続化
@@ -200,9 +206,9 @@ pub async fn upload_chunk(
                 error!("Failed to persist temp file: {}", e);
                 return Err(AppError::Internal);
             }
-            
+
             info!("Chunk {} uploaded for session {}", chunk_index, session_id);
-            
+
             let status = if new_uploaded_size == total_size {
                 "completed"
             } else {
@@ -239,20 +245,21 @@ pub async fn complete_chunked_upload(
     .fetch_optional(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?
-    .ok_or_else(|| AppError::NotFound)?;
+    .ok_or(AppError::NotFound)?;
 
     let (session_id, file_id, total_size, uploaded_size) = session;
 
     if uploaded_size != total_size {
-        return Err(AppError::BadRequest(
-            format!("Upload incomplete: {} of {} bytes", uploaded_size, total_size)
-        ));
+        return Err(AppError::BadRequest(format!(
+            "Upload incomplete: {} of {} bytes",
+            uploaded_size, total_size
+        )));
     }
 
     let temp_dir = PathBuf::from(upload_dir).join("temp").join(&session_id);
     let today = chrono::Local::now().format("%Y/%m/%d").to_string();
     let final_dir = PathBuf::from(upload_dir).join(&today);
-    
+
     tokio::fs::create_dir_all(&final_dir).await.map_err(|e| {
         error!("Failed to create final directory: {}", e);
         AppError::Internal
@@ -269,7 +276,7 @@ pub async fn complete_chunked_upload(
     let mut chunk_index = 0u32;
     loop {
         let chunk_path = temp_dir.join(format!("chunk-{}", chunk_index));
-        
+
         match tokio::fs::read(&chunk_path).await {
             Ok(chunk_data) => {
                 hasher.update(&chunk_data);
@@ -301,7 +308,7 @@ pub async fn complete_chunked_upload(
 
     sqlx::query(
         "INSERT INTO files (id, filename, original_name, size, mime_type, path, checksum)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)"
+         VALUES ($1, $2, $3, $4, $5, $6, $7)",
     )
     .bind(&file_id)
     .bind(&final_filename)
@@ -314,16 +321,17 @@ pub async fn complete_chunked_upload(
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;
 
-    sqlx::query(
-        "UPDATE upload_sessions SET status = $1 WHERE id = $2"
-    )
-    .bind("completed")
-    .bind(&session_id)
-    .execute(&app_state.db)
-    .await
-    .map_err(|e| AppError::Database(e.to_string()))?;
+    sqlx::query("UPDATE upload_sessions SET status = $1 WHERE id = $2")
+        .bind("completed")
+        .bind(&session_id)
+        .execute(&app_state.db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
 
-    info!("Upload completed: file_id={}, size={}", file_id, uploaded_size);
+    info!(
+        "Upload completed: file_id={}, size={}",
+        file_id, uploaded_size
+    );
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "file_id": file_id,
@@ -347,7 +355,7 @@ pub async fn get_upload_session(
     .fetch_optional(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?
-    .ok_or_else(|| AppError::NotFound)?;
+    .ok_or(AppError::NotFound)?;
 
     let (id, file_id, total_size, uploaded_size, chunk_size, status, created_at) = session;
 

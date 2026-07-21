@@ -1,6 +1,6 @@
 use actix_web::{get, web, HttpResponse};
-use serde::Serialize;
 use chrono::Utc;
+use serde::Serialize;
 use std::time::Instant;
 
 use crate::app_state::AppState;

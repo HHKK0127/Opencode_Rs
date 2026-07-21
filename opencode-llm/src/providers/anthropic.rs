@@ -34,11 +34,7 @@ impl AnthropicClient {
         let http = Client::builder()
             .timeout(std::time::Duration::from_millis(config.timeout_ms))
             .build()?;
-        Ok(Self {
-            http,
-            auth,
-            config,
-        })
+        Ok(Self { http, auth, config })
     }
 
     /// Construct a client from environment variables.
@@ -150,9 +146,7 @@ impl Provider for AnthropicClient {
 /// Wrap the upstream's `message_start`/`content_block_*` event stream into
 /// the high-level `AssistantEvent` stream consumed by the runtime. This is
 /// unused for now but kept as a public helper for future integrations.
-pub fn events_to_assistant(
-    events: Vec<StreamEvent>,
-) -> Vec<crate::events::AssistantEvent> {
+pub fn events_to_assistant(events: Vec<StreamEvent>) -> Vec<crate::events::AssistantEvent> {
     use crate::events::AssistantEvent;
     let mut out = Vec::new();
     let mut current_tool: Option<(String, String, String)> = None;
@@ -163,8 +157,7 @@ pub fn events_to_assistant(
                 ..
             } => out.push(AssistantEvent::TextDelta(text)),
             StreamEvent::ContentBlockStart {
-                block:
-                    crate::events::ContentBlock::ToolUse { id, name },
+                block: crate::events::ContentBlock::ToolUse { id, name },
                 ..
             } => {
                 current_tool = Some((id, name, String::new()));

@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 use actix_web::{test, web, App};
 use opencode_poc::api;
 use opencode_poc::app_state::AppState;
@@ -11,8 +13,9 @@ async fn test_register_new_user_success() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let unique = uuid::Uuid::new_v4().to_string()[..8].to_string();
     let req = test::TestRequest::post()
@@ -35,8 +38,9 @@ async fn test_login_with_valid_credentials() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/login")
@@ -58,8 +62,9 @@ async fn test_login_with_invalid_password() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/login")
@@ -76,13 +81,15 @@ async fn test_login_with_invalid_password() {
 #[actix_rt::test]
 async fn test_token_refresh() {
     let app_state = fixtures::create_test_app_state().await;
-    let old_token = fixtures::create_test_token("test-user-id", &app_state.settings.auth.jwt_secret);
+    let old_token =
+        fixtures::create_test_token("test-user-id", &app_state.settings.auth.jwt_secret);
 
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/refresh")
@@ -102,8 +109,9 @@ async fn test_password_validation_min_length() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/register")
@@ -124,8 +132,9 @@ async fn test_invalid_token_refresh() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/refresh")

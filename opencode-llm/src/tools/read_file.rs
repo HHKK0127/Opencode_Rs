@@ -34,8 +34,12 @@ pub struct ReadFileTool;
 
 #[async_trait::async_trait]
 impl super::ToolRuntime for ReadFileTool {
-    fn name(&self) -> &str { NAME }
-    fn spec(&self) -> ToolSpec { spec() }
+    fn name(&self) -> &str {
+        NAME
+    }
+    fn spec(&self) -> ToolSpec {
+        spec()
+    }
 
     async fn execute(&self, args: Value, ctx: &ToolContext) -> Result<String, ToolError> {
         let file_path = args

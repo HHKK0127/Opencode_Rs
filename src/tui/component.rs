@@ -13,10 +13,10 @@
 
 use std::any::Any;
 
-use ratatui::Frame;
+use crossterm::event::KeyEvent;
 use ratatui::layout::Rect;
 use ratatui::prelude::Position;
-use crossterm::event::KeyEvent;
+use ratatui::Frame;
 
 /// Unique identifier for each layer in the compositor stack.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

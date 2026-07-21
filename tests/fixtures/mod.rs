@@ -1,15 +1,18 @@
+#![cfg(feature = "postgres")]
+
+use argon2::{password_hash::SaltString, Argon2, PasswordHasher};
 use opencode_poc::app_state::AppState;
 use opencode_poc::config::Settings;
 use opencode_poc::storage::local_backend::LocalStorageBackend;
-use sqlx::postgres::PgPool;
-use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use rand_core::OsRng;
+use sqlx::postgres::PgPool;
 use std::sync::Arc;
 
 /// Connect to PostgreSQL and set up schema for tests
 pub async fn setup_test_db() -> PgPool {
-    let db_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+    let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://postgres:postgres@localhost:5432/opencode_test".to_string()
+    });
 
     let pool = PgPool::connect(&db_url)
         .await
@@ -108,15 +111,13 @@ pub async fn create_test_user(pool: &PgPool) -> (String, String) {
         .expect("Failed to hash password")
         .to_string();
 
-    sqlx::query(
-        "INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3)"
-    )
-    .bind(&user_id)
-    .bind(&username)
-    .bind(&password_hash)
-    .execute(pool)
-    .await
-    .expect("Failed to insert test user");
+    sqlx::query("INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3)")
+        .bind(&user_id)
+        .bind(&username)
+        .bind(&password_hash)
+        .execute(pool)
+        .await
+        .expect("Failed to insert test user");
 
     (username, password.to_string())
 }
@@ -129,6 +130,7 @@ pub fn create_test_token(user_id: &str, jwt_secret: &str) -> String {
     let now = Utc::now();
     let claims = opencode_poc::models::Claims {
         sub: user_id.to_string(),
+        username: "test-user".to_string(),
         iat: now.timestamp(),
         exp: (now + chrono::Duration::hours(24)).timestamp(),
     };

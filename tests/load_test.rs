@@ -1,9 +1,18 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
 use actix_web::test;
+use futures::future;
 use reqwest::Client;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-use futures::future;
 
 #[actix_web::test]
 async fn test_concurrent_file_uploads_100() {
@@ -41,11 +50,10 @@ async fn test_concurrent_file_uploads_100() {
                 let resp = client
                     .post("http://127.0.0.1:8080/api/v1/files/upload")
                     .header("Authorization", format!("Bearer {}", token))
-                    .multipart(
-                        reqwest::multipart::Form::new()
-                            .part("file", reqwest::multipart::Part::bytes(file_content)
-                                .file_name(filename))
-                    )
+                    .multipart(reqwest::multipart::Form::new().part(
+                        "file",
+                        reqwest::multipart::Part::bytes(file_content).file_name(filename),
+                    ))
                     .send()
                     .await;
 
@@ -59,19 +67,28 @@ async fn test_concurrent_file_uploads_100() {
     let results: Vec<_> = results.into_iter().filter_map(|r| r.ok()).collect();
 
     let success_count = results.iter().filter(|(_, ok, _)| *ok).count();
-    let total_time: std::time::Duration = results.iter()
-        .map(|(_, _, t)| *t)
-        .sum();
+    let total_time: std::time::Duration = results.iter().map(|(_, _, t)| *t).sum();
     let avg_time = total_time / results.len() as u32;
 
     eprintln!("✓ Concurrent uploads (100):");
-    eprintln!("  Success rate: {}/100 ({:.1}%)", success_count, (success_count as f64 / 100.0) * 100.0);
+    eprintln!(
+        "  Success rate: {}/100 ({:.1}%)",
+        success_count,
+        (success_count as f64 / 100.0) * 100.0
+    );
     eprintln!("  Average time: {:?}", avg_time);
     eprintln!("  Total time: {:?}", total_time);
 
-    assert!(success_count >= 90, "Success rate should be >=90%, got {}/100", success_count);
-    assert!(avg_time < std::time::Duration::from_secs(2),
-            "Average time should be <2s, got {:?}", avg_time);
+    assert!(
+        success_count >= 90,
+        "Success rate should be >=90%, got {}/100",
+        success_count
+    );
+    assert!(
+        avg_time < std::time::Duration::from_secs(2),
+        "Average time should be <2s, got {:?}",
+        avg_time
+    );
 }
 
 #[actix_web::test]
@@ -99,9 +116,11 @@ async fn test_concurrent_search_requests() {
             .post("http://127.0.0.1:8080/api/v1/files/upload")
             .header("Authorization", format!("Bearer {}", token))
             .multipart(
-                reqwest::multipart::Form::new()
-                    .part("file", reqwest::multipart::Part::bytes(b"search test content".to_vec())
-                        .file_name(filename))
+                reqwest::multipart::Form::new().part(
+                    "file",
+                    reqwest::multipart::Part::bytes(b"search test content".to_vec())
+                        .file_name(filename),
+                ),
             )
             .send()
             .await;
@@ -136,15 +155,25 @@ async fn test_concurrent_search_requests() {
     let results: Vec<_> = results.into_iter().filter_map(|r| r.ok()).collect();
 
     let success_count = results.iter().filter(|(_, ok, _)| *ok).count();
-    let avg_time: std::time::Duration = results.iter()
+    let avg_time: std::time::Duration = results
+        .iter()
         .map(|(_, _, t)| *t)
-        .sum::<std::time::Duration>() / results.len() as u32;
+        .sum::<std::time::Duration>()
+        / results.len() as u32;
 
     eprintln!("✓ Concurrent searches (50):");
-    eprintln!("  Success rate: {}/50 ({:.1}%)", success_count, (success_count as f64 / 50.0) * 100.0);
+    eprintln!(
+        "  Success rate: {}/50 ({:.1}%)",
+        success_count,
+        (success_count as f64 / 50.0) * 100.0
+    );
     eprintln!("  Average time: {:?}", avg_time);
 
-    assert!(success_count >= 45, "Success rate should be >=90%, got {}/50", success_count);
+    assert!(
+        success_count >= 45,
+        "Success rate should be >=90%, got {}/50",
+        success_count
+    );
 }
 
 #[actix_web::test]
@@ -183,9 +212,11 @@ async fn test_mixed_api_operations_load() {
                 .post("http://127.0.0.1:8080/api/v1/files/upload")
                 .header("Authorization", format!("Bearer {}", token))
                 .multipart(
-                    reqwest::multipart::Form::new()
-                        .part("file", reqwest::multipart::Part::bytes(b"mixed load test".to_vec())
-                            .file_name(filename))
+                    reqwest::multipart::Form::new().part(
+                        "file",
+                        reqwest::multipart::Part::bytes(b"mixed load test".to_vec())
+                            .file_name(filename),
+                    ),
                 )
                 .send()
                 .await;
@@ -236,9 +267,21 @@ async fn test_mixed_api_operations_load() {
     let search_results: Vec<_> = results.iter().filter(|(op, _, _)| *op == 1).collect();
     let list_results: Vec<_> = results.iter().filter(|(op, _, _)| *op == 2).collect();
 
-    let upload_success = if upload_results.is_empty() { 0.0 } else { upload_results.iter().filter(|(_, ok, _)| *ok).count() as f64 / upload_results.len() as f64 };
-    let search_success = if search_results.is_empty() { 0.0 } else { search_results.iter().filter(|(_, ok, _)| *ok).count() as f64 / search_results.len() as f64 };
-    let list_success = if list_results.is_empty() { 0.0 } else { list_results.iter().filter(|(_, ok, _)| *ok).count() as f64 / list_results.len() as f64 };
+    let upload_success = if upload_results.is_empty() {
+        0.0
+    } else {
+        upload_results.iter().filter(|(_, ok, _)| *ok).count() as f64 / upload_results.len() as f64
+    };
+    let search_success = if search_results.is_empty() {
+        0.0
+    } else {
+        search_results.iter().filter(|(_, ok, _)| *ok).count() as f64 / search_results.len() as f64
+    };
+    let list_success = if list_results.is_empty() {
+        0.0
+    } else {
+        list_results.iter().filter(|(_, ok, _)| *ok).count() as f64 / list_results.len() as f64
+    };
 
     eprintln!("✓ Mixed API load (65 total operations):");
     eprintln!("  Uploads (30): {:.1}% success", upload_success * 100.0);
@@ -305,7 +348,10 @@ async fn test_chunked_upload_concurrent_sessions() {
                                         reqwest::multipart::Form::new()
                                             .text("session_id", session_id.to_string())
                                             .text("chunk_index", chunk_idx.to_string())
-                                            .part("chunk", reqwest::multipart::Part::bytes(chunk_data.clone()))
+                                            .part(
+                                                "chunk",
+                                                reqwest::multipart::Part::bytes(chunk_data.clone()),
+                                            ),
                                     )
                                     .send()
                                     .await;
@@ -313,7 +359,10 @@ async fn test_chunked_upload_concurrent_sessions() {
 
                             // Complete upload
                             let _complete_resp = client
-                                .post(&format!("http://127.0.0.1:8080/api/v1/files/upload/complete/{}", session_id))
+                                .post(&format!(
+                                    "http://127.0.0.1:8080/api/v1/files/upload/complete/{}",
+                                    session_id
+                                ))
                                 .header("Authorization", format!("Bearer {}", token))
                                 .send()
                                 .await;
@@ -328,9 +377,16 @@ async fn test_chunked_upload_concurrent_sessions() {
         .collect();
 
     let results: Vec<_> = future::join_all(handles).await;
-    let success_count = results.into_iter().filter_map(|r| r.ok()).filter(|r| *r).count();
+    let success_count = results
+        .into_iter()
+        .filter_map(|r| r.ok())
+        .filter(|r| *r)
+        .count();
 
-    eprintln!("✓ Chunked upload concurrent sessions (10): {}/10 successful", success_count);
+    eprintln!(
+        "✓ Chunked upload concurrent sessions (10): {}/10 successful",
+        success_count
+    );
 
     assert!(success_count >= 8, "At least 8/10 sessions should complete");
 }

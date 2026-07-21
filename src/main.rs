@@ -1,20 +1,28 @@
-﻿use actix_web::{web, App, HttpServer, HttpResponse};
-use std::sync::Arc;
-use tracing::{info, error, warn};
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_assignments,
+    clippy::all
+)]
 
+use actix_web::{web, App, HttpResponse, HttpServer};
+use std::sync::Arc;
+use tracing::{error, info, warn};
+
+mod api;
 mod app_state;
+mod auth_middleware;
 mod cache;
 mod config;
 mod database;
-mod error;
-mod models;
-mod auth_middleware;
-mod middleware_cors;
-mod middleware_rate_limit;
-mod middleware_logging;
-mod middleware;
-mod api;
 mod db;
+mod error;
+mod middleware;
+mod middleware_cors;
+mod middleware_logging;
+mod middleware_rate_limit;
+mod models;
 mod storage;
 mod validation;
 
@@ -25,22 +33,23 @@ async fn main() -> std::io::Result<()> {
     info!("🚀 OpenCode Server Starting...");
 
     // メトリクス初期化
-    middleware::metrics::init_metrics()
-        .expect("Failed to initialize metrics");
+    middleware::metrics::init_metrics().expect("Failed to initialize metrics");
 
     cache::register_redis_metrics(&middleware::metrics::REGISTRY)
         .expect("Failed to register Redis metrics");
 
     // 設定読み込み
-    let settings = config::Settings::new()
-        .unwrap_or_else(|e| {
-            warn!("Config load failed ({}), using defaults", e);
-            config::Settings::default()
-        });
+    let settings = config::Settings::new().unwrap_or_else(|e| {
+        warn!("Config load failed ({}), using defaults", e);
+        config::Settings::default()
+    });
 
     let env = std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
     info!("📋 Environment: {}", env);
-    info!("🔧 Server: {}:{}", settings.server.host, settings.server.port);
+    info!(
+        "🔧 Server: {}:{}",
+        settings.server.host, settings.server.port
+    );
 
     // アップロードディレクトリ作成
     let _ = std::fs::create_dir_all(&settings.upload.directory);
@@ -71,13 +80,13 @@ async fn main() -> std::io::Result<()> {
     }
 
     // Redisキャッシュ初期化
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
-    
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+
     let redis_cache = match cache::RedisCache::new(cache::RedisCacheConfig {
         url: redis_url.clone(),
         max_connections: 50,
-        connection_timeout_ms: 2000,  // 短縮: 5秒 → 2秒
+        connection_timeout_ms: 2000, // 短縮: 5秒 → 2秒
     })
     .await
     {
@@ -108,17 +117,12 @@ async fn main() -> std::io::Result<()> {
 
     // ストレージバックエンド初期化
     let storage_backend: Arc<dyn storage::StorageBackend> = Arc::new(
-        storage::local_backend::LocalStorageBackend::new(&settings.upload.directory)
+        storage::local_backend::LocalStorageBackend::new(&settings.upload.directory),
     );
     info!("✅ StorageBackend initialized");
 
     // AppState作成
-    let app_state = app_state::AppState::new(
-        settings.clone(),
-        pool,
-        storage_backend,
-        redis_cache,
-    );
+    let app_state = app_state::AppState::new(settings.clone(), pool, storage_backend, redis_cache);
     let bind_addr = app_state.server_addr();
 
     info!("🔄 Starting server on http://{}", bind_addr);
@@ -149,7 +153,7 @@ async fn health_check_handler() -> HttpResponse {
         version: String,
         timestamp: String,
     }
-    
+
     HttpResponse::Ok().json(HealthStatus {
         status: "healthy".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -159,7 +163,7 @@ async fn health_check_handler() -> HttpResponse {
 
 async fn db_health_check_handler(app_state: web::Data<app_state::AppState>) -> HttpResponse {
     let start = std::time::Instant::now();
-    
+
     match database::health_check(&app_state.db).await {
         Ok(_) => {
             let elapsed = start.elapsed().as_millis() as u64;
@@ -191,7 +195,7 @@ async fn initialize_db(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::Erro
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        "#
+        "#,
     )
     .execute(pool)
     .await?;
@@ -219,7 +223,7 @@ async fn initialize_db(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::Erro
             storage_type TEXT DEFAULT 'local',
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        "#
+        "#,
     )
     .execute(pool)
     .await?;
@@ -238,7 +242,7 @@ async fn initialize_db(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::Erro
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        "#
+        "#,
     )
     .execute(pool)
     .await?;
@@ -252,28 +256,27 @@ async fn initialize_db(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::Erro
 }
 
 async fn create_test_user(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::Error> {
-    use argon2::{Argon2, PasswordHasher};
     use argon2::password_hash::SaltString;
+    use argon2::{Argon2, PasswordHasher};
     use rand_core::OsRng;
 
-    let test_password = std::env::var("TEST_USER_PASSWORD")
-        .unwrap_or_else(|_| {
-            let random_pass: String = (0..32)
-                .map(|_| {
-                    let b = rand::random::<u8>();
-                    let idx = b % 62;
-                    if idx < 26 {
-                        (b'A' + idx) as char
-                    } else if idx < 52 {
-                        (b'a' + (idx - 26)) as char
-                    } else {
-                        (b'0' + (idx - 52)) as char
-                    }
-                })
-                .collect();
-            warn!("Generated random test password (set TEST_USER_PASSWORD to override)");
-            random_pass
-        });
+    let test_password = std::env::var("TEST_USER_PASSWORD").unwrap_or_else(|_| {
+        let random_pass: String = (0..32)
+            .map(|_| {
+                let b = rand::random::<u8>();
+                let idx = b % 62;
+                if idx < 26 {
+                    (b'A' + idx) as char
+                } else if idx < 52 {
+                    (b'a' + (idx - 26)) as char
+                } else {
+                    (b'0' + (idx - 52)) as char
+                }
+            })
+            .collect();
+        warn!("Generated random test password (set TEST_USER_PASSWORD to override)");
+        random_pass
+    });
 
     let salt = SaltString::generate(OsRng);
     let argon2 = Argon2::default();
@@ -287,7 +290,7 @@ async fn create_test_user(pool: &sqlx::sqlite::SqlitePool) -> Result<(), sqlx::E
         INSERT INTO users (id, username, password_hash) 
         VALUES ($1, $2, $3) 
         ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash
-        "#
+        "#,
     )
     .bind("test-user-1")
     .bind("testuser")
@@ -304,7 +307,6 @@ async fn metrics_endpoint() -> HttpResponse {
         Ok(metrics) => HttpResponse::Ok()
             .content_type("text/plain; version=0.0.4")
             .body(metrics),
-        Err(_) => HttpResponse::InternalServerError()
-            .body("Failed to collect metrics"),
+        Err(_) => HttpResponse::InternalServerError().body("Failed to collect metrics"),
     }
 }

@@ -9,21 +9,14 @@ pub struct FailoverStorageBackend {
 }
 
 impl FailoverStorageBackend {
-    pub fn new(
-        primary: Arc<dyn StorageBackend>,
-        secondary: Arc<dyn StorageBackend>,
-    ) -> Self {
+    pub fn new(primary: Arc<dyn StorageBackend>, secondary: Arc<dyn StorageBackend>) -> Self {
         Self { primary, secondary }
     }
 }
 
 #[async_trait]
 impl StorageBackend for FailoverStorageBackend {
-    async fn store(
-        &self,
-        data: Bytes,
-        metadata: FileMetadata,
-    ) -> StorageResult<StorageUrl> {
+    async fn store(&self, data: Bytes, metadata: FileMetadata) -> StorageResult<StorageUrl> {
         match self.primary.store(data.clone(), metadata.clone()).await {
             Ok(url) => Ok(url),
             Err(_) => {
@@ -78,6 +71,7 @@ impl StorageBackend for FailoverStorageBackend {
 mod tests {
     use super::*;
     use crate::storage::local_backend::LocalStorageBackend;
+    use crate::storage::StorageError;
     use tempfile::TempDir;
     use uuid::Uuid;
 

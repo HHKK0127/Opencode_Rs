@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 // Users API Integration Tests (PostgreSQL)
 
 use actix_web::{http::StatusCode, test, web, App};
@@ -19,9 +21,7 @@ async fn test_list_users_success() {
     )
     .await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v1/users")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v1/users").to_request();
 
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::OK);
@@ -66,9 +66,7 @@ async fn test_users_routing() {
     )
     .await;
 
-    let req = test::TestRequest::get()
-        .uri("/api/v1/users")
-        .to_request();
+    let req = test::TestRequest::get().uri("/api/v1/users").to_request();
 
     let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_success());

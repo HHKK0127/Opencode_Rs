@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, web::Query};
+use actix_web::{web::Query, HttpResponse};
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;

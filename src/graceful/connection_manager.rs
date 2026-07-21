@@ -118,7 +118,9 @@ impl ConnectionManager {
 
     /// Wait for all connections to close
     pub async fn wait_all_closed(&self, timeout_secs: u64) {
-        self.active_connections.wait_for_completion(timeout_secs).await;
+        self.active_connections
+            .wait_for_completion(timeout_secs)
+            .await;
     }
 
     /// Check health of connection system

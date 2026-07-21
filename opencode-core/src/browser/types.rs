@@ -163,7 +163,8 @@ pub struct CloseSessionResponse {
 
 fn validate_path(path: &str, base_dir: &str) -> Result<std::path::PathBuf, BrowserError> {
     use std::path::Path;
-    let base = Path::new(base_dir).canonicalize()
+    let base = Path::new(base_dir)
+        .canonicalize()
         .map_err(|_| BrowserError::MissingPath)?;
     let target = base.join(path);
     let canonical = target.canonicalize().unwrap_or(target.clone());

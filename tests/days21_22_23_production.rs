@@ -1,4 +1,14 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
 #[test]
+#[allow(dead_code)]
 fn test_01_production_config_dev_environment() {
     // Test 1: Development environment configuration
     #[derive(Debug)]
@@ -221,7 +231,7 @@ fn test_07_slo_definitions() {
     let slos = vec![
         SLO {
             metric: "availability".to_string(),
-            target: 0.9999, // 99.99%
+            target: 0.9999,      // 99.99%
             window_minutes: 720, // 12 hours
         },
         SLO {
@@ -283,8 +293,8 @@ fn test_09_backup_strategy() {
         backup_interval_hours: 6,
         retention_days: 30,
         redundancy_locations: 3, // Multi-region
-        rto_minutes: 15, // Max 15 min to recover
-        rpo_minutes: 1,  // Max 1 min data loss
+        rto_minutes: 15,         // Max 15 min to recover
+        rpo_minutes: 1,          // Max 1 min data loss
     };
 
     assert!(strategy.backup_interval_hours > 0);

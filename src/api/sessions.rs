@@ -1,21 +1,17 @@
+#![allow(dead_code)]
 //! Session Management API Endpoints
 //!
 //! JWT + Redis Session Integration
 //! Endpoints: validate, extend, invalidate, info
 
-use actix_web::{
-    web,
-    HttpRequest,
-    HttpResponse,
-};
+use actix_web::{web, HttpRequest, HttpResponse};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::{
     app_state::AppState,
-    models::Claims,
-    cache::session::{SessionData, SessionManager},
+    cache::session::SessionManager,
     error::{AppError, AppResult},
 };
 
@@ -79,8 +75,7 @@ pub async fn validate_session(
     req: HttpRequest,
     app_state: web::Data<AppState>,
 ) -> AppResult<HttpResponse> {
-    let token = extract_token_from_request(&req)
-        .ok_or(AppError::Unauthorized)?;
+    let token = extract_token_from_request(&req).ok_or(AppError::Unauthorized)?;
 
     if let Some(ref cache) = app_state.cache {
         let session_mgr = SessionManager::new(cache.clone());
@@ -118,8 +113,7 @@ pub async fn extend_session(
     req: HttpRequest,
     app_state: web::Data<AppState>,
 ) -> AppResult<HttpResponse> {
-    let token = extract_token_from_request(&req)
-        .ok_or(AppError::Unauthorized)?;
+    let token = extract_token_from_request(&req).ok_or(AppError::Unauthorized)?;
 
     if let Some(ref cache) = app_state.cache {
         let session_mgr = SessionManager::new(cache.clone());
@@ -150,8 +144,7 @@ pub async fn invalidate_session(
     req: HttpRequest,
     app_state: web::Data<AppState>,
 ) -> AppResult<HttpResponse> {
-    let token = extract_token_from_request(&req)
-        .ok_or(AppError::Unauthorized)?;
+    let token = extract_token_from_request(&req).ok_or(AppError::Unauthorized)?;
 
     if let Some(ref cache) = app_state.cache {
         let session_mgr = SessionManager::new(cache.clone());
@@ -188,8 +181,7 @@ pub async fn get_session_info(
     req: HttpRequest,
     app_state: web::Data<AppState>,
 ) -> AppResult<HttpResponse> {
-    let token = extract_token_from_request(&req)
-        .ok_or(AppError::Unauthorized)?;
+    let token = extract_token_from_request(&req).ok_or(AppError::Unauthorized)?;
     let now = Utc::now();
 
     if let Some(ref cache) = app_state.cache {

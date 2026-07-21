@@ -1,8 +1,8 @@
-use crate::cache::{RedisCache, CacheResult, CacheError};
+use crate::cache::{CacheError, CacheResult, RedisCache};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
 use std::sync::Arc;
+use tracing::{debug, info, warn};
 
 /// Session data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,21 +78,15 @@ impl SessionManager {
     pub async fn validate_session(&self, token: &str) -> CacheResult<SessionData> {
         let cache_key = format!("session:{}", token);
 
-        let session: SessionData = self
-            .cache
-            .get(&cache_key)
-            .await?
-            .ok_or_else(|| {
-                debug!("Session not found or expired: {}", token);
-                CacheError::KeyNotFound("Session not found".to_string())
-            })?;
+        let session: SessionData = self.cache.get(&cache_key).await?.ok_or_else(|| {
+            debug!("Session not found or expired: {}", token);
+            CacheError::KeyNotFound("Session not found".to_string())
+        })?;
 
         if !session.is_active() {
             warn!("Session expired: user_id={}", session.user_id);
             self.cache.delete(&cache_key).await.ok();
-            return Err(CacheError::KeyNotFound(
-                "Session expired".to_string(),
-            ));
+            return Err(CacheError::KeyNotFound("Session expired".to_string()));
         }
 
         debug!("Session validated: user={}", session.username);
@@ -106,9 +100,7 @@ impl SessionManager {
         // Check if session exists
         if !self.cache.exists(&cache_key).await? {
             debug!("Cannot extend non-existent session: {}", token);
-            return Err(CacheError::KeyNotFound(
-                "Session not found".to_string(),
-            ));
+            return Err(CacheError::KeyNotFound("Session not found".to_string()));
         }
 
         // Get current session and update activity
@@ -116,9 +108,7 @@ impl SessionManager {
             .cache
             .get(&cache_key)
             .await?
-            .ok_or_else(|| {
-                CacheError::KeyNotFound("Session not found".to_string())
-            })?;
+            .ok_or_else(|| CacheError::KeyNotFound("Session not found".to_string()))?;
 
         session.update_activity();
 
@@ -126,7 +116,8 @@ impl SessionManager {
         let ttl = std::time::Duration::from_secs(86400);
         self.cache.set(&cache_key, &session, Some(ttl)).await?;
 
-        debug!("Session extended: user={}, token_prefix={}...",
+        debug!(
+            "Session extended: user={}, token_prefix={}...",
             session.username,
             &token[..std::cmp::min(8, token.len())]
         );
@@ -139,7 +130,8 @@ impl SessionManager {
         let cache_key = format!("session:{}", token);
         self.cache.delete(&cache_key).await?;
 
-        info!("Session invalidated: token_prefix={}...",
+        info!(
+            "Session invalidated: token_prefix={}...",
             &token[..std::cmp::min(8, token.len())]
         );
 
@@ -163,11 +155,7 @@ impl SessionManager {
     }
 
     /// Check if user has specific permission
-    pub async fn check_permission(
-        &self,
-        token: &str,
-        permission: &str,
-    ) -> CacheResult<bool> {
+    pub async fn check_permission(&self, token: &str, permission: &str) -> CacheResult<bool> {
         let session = self.validate_session(token).await?;
         Ok(session.permissions.contains(&permission.to_string()))
     }
@@ -193,11 +181,7 @@ mod tests {
 
     #[test]
     fn test_session_activity_update() {
-        let mut session = SessionData::new(
-            "user123".to_string(),
-            "john_doe".to_string(),
-            vec![],
-        );
+        let mut session = SessionData::new("user123".to_string(), "john_doe".to_string(), vec![]);
 
         let initial_activity = session.last_activity;
         session.update_activity();
@@ -207,11 +191,7 @@ mod tests {
 
     #[test]
     fn test_session_active_check() {
-        let session = SessionData::new(
-            "user123".to_string(),
-            "john_doe".to_string(),
-            vec![],
-        );
+        let session = SessionData::new("user123".to_string(), "john_doe".to_string(), vec![]);
 
         // New session should be active
         assert!(session.is_active());
@@ -263,12 +243,7 @@ pub struct UploadSessionData {
 }
 
 impl UploadSessionData {
-    pub fn new(
-        session_id: String,
-        user_id: String,
-        total_size: i64,
-        chunk_size: i64,
-    ) -> Self {
+    pub fn new(session_id: String, user_id: String, total_size: i64, chunk_size: i64) -> Self {
         let now = Utc::now();
         Self {
             session_id,
@@ -355,9 +330,7 @@ impl UploadSessionManager {
             .cache
             .get(&cache_key)
             .await?
-            .ok_or_else(|| {
-                CacheError::KeyNotFound("Upload session not found".to_string())
-            })?;
+            .ok_or_else(|| CacheError::KeyNotFound("Upload session not found".to_string()))?;
 
         session.uploaded_size = uploaded_size;
         if !session.chunks_received.contains(&chunk_index) {
@@ -378,20 +351,14 @@ impl UploadSessionManager {
     }
 
     /// Mark session as completed
-    pub async fn mark_completed(
-        &self,
-        session_id: &str,
-        file_id: &str,
-    ) -> CacheResult<()> {
+    pub async fn mark_completed(&self, session_id: &str, file_id: &str) -> CacheResult<()> {
         let cache_key = format!("upload_session:{}", session_id);
 
         let mut session: UploadSessionData = self
             .cache
             .get(&cache_key)
             .await?
-            .ok_or_else(|| {
-                CacheError::KeyNotFound("Upload session not found".to_string())
-            })?;
+            .ok_or_else(|| CacheError::KeyNotFound("Upload session not found".to_string()))?;
 
         session.file_id = Some(file_id.to_string());
         session.status = "completed".to_string();
@@ -480,12 +447,7 @@ mod upload_tests {
 
     #[test]
     fn test_upload_completion() {
-        let mut session = UploadSessionData::new(
-            "sess".to_string(),
-            "user".to_string(),
-            100,
-            10,
-        );
+        let mut session = UploadSessionData::new("sess".to_string(), "user".to_string(), 100, 10);
 
         session.uploaded_size = 100;
         assert!(session.is_complete());

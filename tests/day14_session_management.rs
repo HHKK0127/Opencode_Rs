@@ -1,16 +1,12 @@
+#![cfg(feature = "postgres")]
+
 //! Day 14: Session Management Integration Tests (PostgreSQL)
 //!
 //! Migrated from tests/legacy/day14_session_management.rs
 //! - SQLite → PostgreSQL (PgPool via fixtures)
 //! - tokio::test for async integration tests
 
-use actix_web::{
-    http::StatusCode,
-    middleware::Logger,
-    test,
-    web,
-    App,
-};
+use actix_web::{http::StatusCode, middleware::Logger, test, web, App};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -45,7 +41,10 @@ async fn test_session_creation_on_login() {
     if login_resp.status() == StatusCode::OK {
         let body: serde_json::Value = test::read_body_json(login_resp).await;
         assert!(body.get("token").is_some(), "Response should contain token");
-        assert!(body.get("expires_in").is_some(), "Response should contain expires_in");
+        assert!(
+            body.get("expires_in").is_some(),
+            "Response should contain expires_in"
+        );
     }
 }
 
@@ -58,6 +57,7 @@ async fn test_middleware_session_validation() {
 
     let claims = opencode_poc::models::Claims {
         sub: "test-token-123".to_string(),
+        username: "test-user".to_string(),
         iat: chrono::Utc::now().timestamp(),
         exp: (chrono::Utc::now() + chrono::Duration::hours(24)).timestamp(),
     };
@@ -133,7 +133,10 @@ async fn test_session_ttl_extension() {
         .validate_session(token)
         .await
         .expect("Failed to validate session");
-    assert!(updated.last_activity > initial_activity, "last_activity should be updated");
+    assert!(
+        updated.last_activity > initial_activity,
+        "last_activity should be updated"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +160,10 @@ async fn test_session_invalidation_on_logout() {
         .await
         .expect("Failed to create session");
 
-    assert!(session_mgr.validate_session(token).await.is_ok(), "Session should exist");
+    assert!(
+        session_mgr.validate_session(token).await.is_ok(),
+        "Session should exist"
+    );
 
     session_mgr
         .invalidate_session(token)
@@ -210,7 +216,16 @@ async fn test_concurrent_user_sessions() {
         .await
         .expect("Failed to invalidate session");
 
-    assert!(session_mgr.validate_session("token-1").await.is_ok(), "Alice's session should still be valid");
-    assert!(session_mgr.validate_session("token-3").await.is_ok(), "Charlie's session should still be valid");
-    assert!(session_mgr.validate_session("token-2").await.is_err(), "Bob's session should be invalidated");
+    assert!(
+        session_mgr.validate_session("token-1").await.is_ok(),
+        "Alice's session should still be valid"
+    );
+    assert!(
+        session_mgr.validate_session("token-3").await.is_ok(),
+        "Charlie's session should still be valid"
+    );
+    assert!(
+        session_mgr.validate_session("token-2").await.is_err(),
+        "Bob's session should be invalidated"
+    );
 }

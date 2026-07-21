@@ -1,11 +1,12 @@
+#![cfg(feature = "postgres")]
+
 use actix_web::{test, web, App};
-use opencode_poc::{api, app_state::AppState, config::Settings, storage::local_backend::LocalStorageBackend};
-use sqlx::postgres::PgPool;
 use std::sync::Arc;
 
 async fn setup_test_state() -> AppState {
-    let db_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode_test".to_string());
+    let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://postgres:postgres@localhost:5432/opencode_test".to_string()
+    });
 
     let pool = PgPool::connect(&db_url)
         .await
@@ -17,8 +18,11 @@ async fn setup_test_state() -> AppState {
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )"
-    ).execute(&pool).await.expect("users table");
+        )",
+    )
+    .execute(&pool)
+    .await
+    .expect("users table");
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS files (
@@ -32,8 +36,11 @@ async fn setup_test_state() -> AppState {
             user_id TEXT,
             is_public BOOLEAN DEFAULT FALSE,
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )"
-    ).execute(&pool).await.expect("files table");
+        )",
+    )
+    .execute(&pool)
+    .await
+    .expect("files table");
 
     let settings = Settings::default();
     let storage: Arc<dyn opencode_poc::storage::StorageBackend> =
@@ -174,7 +181,10 @@ async fn test_request_id_middleware_generates_header() {
 
     assert_eq!(resp.status(), 200);
     let request_id = resp.headers().get("x-request-id");
-    assert!(request_id.is_some(), "x-request-id header should be present");
+    assert!(
+        request_id.is_some(),
+        "x-request-id header should be present"
+    );
 
     let rid = request_id.unwrap().to_str().unwrap();
     assert_eq!(rid.len(), 36, "request id should be UUID format");
@@ -205,5 +215,8 @@ async fn test_request_id_middleware_propagates_client_id() {
         .to_str()
         .unwrap();
 
-    assert_eq!(returned_id, custom_id, "client-provided request id should be echoed back");
+    assert_eq!(
+        returned_id, custom_id,
+        "client-provided request id should be echoed back"
+    );
 }

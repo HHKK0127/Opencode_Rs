@@ -21,8 +21,7 @@ use crate::events::StreamEvent;
 use crate::types::{MessageRequest, MessageResponse};
 
 /// A boxed stream of [`StreamEvent`]s.
-pub type EventStream =
-    Pin<Box<dyn Stream<Item = LlmResult<StreamEvent>> + Send + Sync + 'static>>;
+pub type EventStream = Pin<Box<dyn Stream<Item = LlmResult<StreamEvent>> + Send + Sync + 'static>>;
 
 /// Common interface for an LLM provider.
 #[async_trait]

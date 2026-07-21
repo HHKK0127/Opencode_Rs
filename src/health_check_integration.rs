@@ -1,5 +1,5 @@
 /// Health check integration with Graceful Shutdown
-use crate::graceful::{GracefulShutdown, ActiveConnections};
+use crate::graceful::{ActiveConnections, GracefulShutdown};
 use crate::production::health_check::{HealthChecker, HealthStatus};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -33,18 +33,16 @@ impl IntegratedHealthCheck {
     }
 
     /// Update component health status
-    pub async fn update_component(
-        &self,
-        name: &str,
-        status: HealthStatus,
-        latency_ms: f64,
-    ) {
+    pub async fn update_component(&self, name: &str, status: HealthStatus, latency_ms: f64) {
         let mut checker = self.checker.write().await;
         checker.update_component_health(name, status.clone(), latency_ms);
 
         // Log degradation if needed
         if status == HealthStatus::Degraded {
-            warn!("Component {} health degraded (latency: {:.2}ms)", name, latency_ms);
+            warn!(
+                "Component {} health degraded (latency: {:.2}ms)",
+                name, latency_ms
+            );
         }
     }
 
@@ -89,7 +87,9 @@ impl IntegratedHealthCheck {
         let active_conns = self.active_connections.current();
 
         if is_shutting_down {
-            HealthCheckDecision::ShuttingDown { active_connections: active_conns }
+            HealthCheckDecision::ShuttingDown {
+                active_connections: active_conns,
+            }
         } else if health == HealthStatus::Unhealthy {
             HealthCheckDecision::Unhealthy {
                 message: "System health is unhealthy".to_string(),
@@ -122,9 +122,7 @@ impl HealthCheckDecision {
 
     pub fn is_ready_for_shutdown(&self) -> bool {
         match self {
-            HealthCheckDecision::ShuttingDown { active_connections } => {
-                *active_connections == 0
-            }
+            HealthCheckDecision::ShuttingDown { active_connections } => *active_connections == 0,
             _ => false,
         }
     }
@@ -181,7 +179,9 @@ mod tests {
         let health = IntegratedHealthCheck::new(shutdown, connections, 5000);
 
         health.register_component("api".to_string()).await;
-        health.update_component("api", HealthStatus::Degraded, 150.0).await;
+        health
+            .update_component("api", HealthStatus::Degraded, 150.0)
+            .await;
 
         // Degraded is still ready (not Unhealthy)
         assert!(health.is_ready().await);
@@ -195,7 +195,9 @@ mod tests {
 
         let health = IntegratedHealthCheck::new(shutdown.clone(), connections, 5000);
 
-        shutdown.shutdown(crate::graceful::ShutdownSignal::Sigint).await;
+        shutdown
+            .shutdown(crate::graceful::ShutdownSignal::Sigint)
+            .await;
 
         let decision = health.check_and_decide_shutdown().await;
         assert!(matches!(decision, HealthCheckDecision::ShuttingDown { .. }));

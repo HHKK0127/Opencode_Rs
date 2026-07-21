@@ -58,9 +58,8 @@ pub enum ProviderKind {
 impl ProviderKind {
     /// Resolve a provider kind from the model identifier and the auth source.
     pub fn detect(model: &str, auth: &AuthSource) -> Self {
-        if matches!(auth, AuthSource::OpenAiBearer(_)) {
-            Self::OpenAiCompat
-        } else if model.to_ascii_lowercase().contains("gpt-")
+        if matches!(auth, AuthSource::OpenAiBearer(_))
+            || model.to_ascii_lowercase().contains("gpt-")
             || model.to_ascii_lowercase().contains("o1")
             || model.to_ascii_lowercase().contains("o3")
             || model.to_ascii_lowercase().contains("o4")
@@ -191,8 +190,14 @@ mod tests {
 
     #[test]
     fn model_family_resolution() {
-        assert_eq!(ModelFamily::from_model("claude-opus-4-6"), ModelFamily::Opus4);
-        assert_eq!(ModelFamily::from_model("o1-preview"), ModelFamily::Reasoning);
+        assert_eq!(
+            ModelFamily::from_model("claude-opus-4-6"),
+            ModelFamily::Opus4
+        );
+        assert_eq!(
+            ModelFamily::from_model("o1-preview"),
+            ModelFamily::Reasoning
+        );
         assert_eq!(ModelFamily::from_model("gpt-4o"), ModelFamily::Gpt4);
     }
 

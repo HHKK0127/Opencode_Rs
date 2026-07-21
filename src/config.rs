@@ -1,13 +1,15 @@
+#![allow(dead_code)]
 use config::{Config, ConfigError, Environment, File};
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::env;
-use once_cell::sync::Lazy;
 
 /// JWT_SECRET - 環境変数から取得（起動時に必須チェック）
 /// 生成方法: export JWT_SECRET=$(openssl rand -base64 32)
 pub static JWT_SECRET: Lazy<String> = Lazy::new(|| {
-    env::var("JWT_SECRET")
-        .expect("JWT_SECRET environment variable must be set. Generate with: openssl rand -base64 32")
+    env::var("JWT_SECRET").expect(
+        "JWT_SECRET environment variable must be set. Generate with: openssl rand -base64 32",
+    )
 });
 
 /// JWT有効期限（時間）- デフォルト24時間
@@ -83,7 +85,7 @@ pub struct Logging {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Auth {
-    pub jwt_secret: String,  // 実行時には使用せず、JWT_SECRETを直接使用
+    pub jwt_secret: String, // 実行時には使用せず、JWT_SECRETを直接使用
     pub token_expiry_hours: u32,
 }
 
@@ -211,7 +213,11 @@ impl Settings {
 
         let config = Config::builder()
             .add_source(File::with_name(&format!("config/{}", env)).required(false))
-            .add_source(Environment::with_prefix("OPENCODE").try_parsing(true).separator("__"))
+            .add_source(
+                Environment::with_prefix("OPENCODE")
+                    .try_parsing(true)
+                    .separator("__"),
+            )
             .build()?;
 
         config.try_deserialize()
@@ -238,8 +244,9 @@ impl Default for Settings {
                 workers: 4,
             },
             database: Database {
-                url: std::env::var("DATABASE_URL")
-                    .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/opencode".to_string()),
+                url: std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+                    "postgres://postgres:postgres@localhost:5432/opencode".to_string()
+                }),
                 auto_init: true,
                 max_connections: 50,
                 min_connections: 5,

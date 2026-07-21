@@ -11,11 +11,9 @@ use serde_json::Value as JsonValue;
 use tokio::time::timeout;
 
 use crate::mcp::jsonrpc::{
-    default_initialize_params, mcp_tool_name, JsonRpcError, JsonRpcId,
-    McpListResourcesParams, McpListResourcesResult,
-    McpListToolsParams,
-    McpReadResourceParams, McpReadResourceResult,
-    McpToolCallContent, McpToolCallParams, McpTool,
+    default_initialize_params, mcp_tool_name, JsonRpcError, JsonRpcId, McpListResourcesParams,
+    McpListResourcesResult, McpListToolsParams, McpReadResourceParams, McpReadResourceResult,
+    McpTool, McpToolCallContent, McpToolCallParams,
 };
 use crate::mcp::stdio::McpStdioProcess;
 
@@ -120,30 +118,55 @@ pub enum McpManagerError {
         timeout_ms: u64,
     },
     /// Unknown tool.
-    UnknownTool {
-        qualified_name: String,
-    },
+    UnknownTool { qualified_name: String },
     /// Unknown server.
-    UnknownServer {
-        server_name: String,
-    },
+    UnknownServer { server_name: String },
 }
 
 impl std::fmt::Display for McpManagerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Io(e) => write!(f, "{e}"),
-            Self::Transport { server_name, method, source } => {
-                write!(f, "MCP `{server_name}` transport failed during {method}: {source}")
+            Self::Transport {
+                server_name,
+                method,
+                source,
+            } => {
+                write!(
+                    f,
+                    "MCP `{server_name}` transport failed during {method}: {source}"
+                )
             }
-            Self::JsonRpc { server_name, method, error } => {
-                write!(f, "MCP `{server_name}` JSON-RPC error for {method}: {} ({})", error.message, error.code)
+            Self::JsonRpc {
+                server_name,
+                method,
+                error,
+            } => {
+                write!(
+                    f,
+                    "MCP `{server_name}` JSON-RPC error for {method}: {} ({})",
+                    error.message, error.code
+                )
             }
-            Self::InvalidResponse { server_name, method, details } => {
-                write!(f, "MCP `{server_name}` invalid response for {method}: {details}")
+            Self::InvalidResponse {
+                server_name,
+                method,
+                details,
+            } => {
+                write!(
+                    f,
+                    "MCP `{server_name}` invalid response for {method}: {details}"
+                )
             }
-            Self::Timeout { server_name, method, timeout_ms } => {
-                write!(f, "MCP `{server_name}` timed out after {timeout_ms}ms during {method}")
+            Self::Timeout {
+                server_name,
+                method,
+                timeout_ms,
+            } => {
+                write!(
+                    f,
+                    "MCP `{server_name}` timed out after {timeout_ms}ms during {method}"
+                )
             }
             Self::UnknownTool { qualified_name } => {
                 write!(f, "unknown MCP tool `{qualified_name}`")
@@ -296,7 +319,10 @@ impl McpServerManager {
             }
         }
 
-        McpToolDiscoveryReport { tools, failed_servers: failed }
+        McpToolDiscoveryReport {
+            tools,
+            failed_servers: failed,
+        }
     }
 
     /// Discover tools from a single server.
@@ -333,23 +359,29 @@ impl McpServerManager {
 
         loop {
             let id = self.take_id();
-            let response = {
-                let server = self.server_mut(server_name)?;
-                let process = server.process.as_mut().ok_or_else(|| {
-                    McpManagerError::InvalidResponse {
-                        server_name: server_name.to_string(),
-                        method: "tools/list",
-                        details: "process missing".to_string(),
-                    }
-                })?;
-                Self::run_with_timeout(
-                    server_name,
-                    "tools/list",
-                    MCP_LIST_TOOLS_TIMEOUT_MS,
-                    process.list_tools(id, Some(McpListToolsParams { cursor: cursor.clone() })),
-                )
-                .await?
-            };
+            let response =
+                {
+                    let server = self.server_mut(server_name)?;
+                    let process = server.process.as_mut().ok_or_else(|| {
+                        McpManagerError::InvalidResponse {
+                            server_name: server_name.to_string(),
+                            method: "tools/list",
+                            details: "process missing".to_string(),
+                        }
+                    })?;
+                    Self::run_with_timeout(
+                        server_name,
+                        "tools/list",
+                        MCP_LIST_TOOLS_TIMEOUT_MS,
+                        process.list_tools(
+                            id,
+                            Some(McpListToolsParams {
+                                cursor: cursor.clone(),
+                            }),
+                        ),
+                    )
+                    .await?
+                };
 
             if let Some(error) = response.error {
                 return Err(McpManagerError::JsonRpc {
@@ -359,13 +391,13 @@ impl McpServerManager {
                 });
             }
 
-            let result = response.result.ok_or_else(|| {
-                McpManagerError::InvalidResponse {
+            let result = response
+                .result
+                .ok_or_else(|| McpManagerError::InvalidResponse {
                     server_name: server_name.to_string(),
                     method: "tools/list",
                     details: "missing result".to_string(),
-                }
-            })?;
+                })?;
 
             for tool in result.tools {
                 let qualified = mcp_tool_name(server_name, &tool.name);
@@ -410,13 +442,15 @@ impl McpServerManager {
 
         let response = {
             let server = self.server_mut(&route.server_name)?;
-            let process = server.process.as_mut().ok_or_else(|| {
-                McpManagerError::InvalidResponse {
-                    server_name: route.server_name.clone(),
-                    method: "tools/call",
-                    details: "process missing".to_string(),
-                }
-            })?;
+            let process =
+                server
+                    .process
+                    .as_mut()
+                    .ok_or_else(|| McpManagerError::InvalidResponse {
+                        server_name: route.server_name.clone(),
+                        method: "tools/call",
+                        details: "process missing".to_string(),
+                    })?;
             Self::run_with_timeout(
                 &route.server_name,
                 "tools/call",
@@ -450,13 +484,13 @@ impl McpServerManager {
             });
         }
 
-        let result = response.result.ok_or_else(|| {
-            McpManagerError::InvalidResponse {
+        let result = response
+            .result
+            .ok_or_else(|| McpManagerError::InvalidResponse {
                 server_name: route.server_name,
                 method: "tools/call",
                 details: "missing result".to_string(),
-            }
-        })?;
+            })?;
 
         let text = result
             .content
@@ -511,23 +545,29 @@ impl McpServerManager {
 
         loop {
             let id = self.take_id();
-            let response = {
-                let server = self.server_mut(server_name)?;
-                let process = server.process.as_mut().ok_or_else(|| {
-                    McpManagerError::InvalidResponse {
-                        server_name: server_name.to_string(),
-                        method: "resources/list",
-                        details: "process missing".to_string(),
-                    }
-                })?;
-                Self::run_with_timeout(
-                    server_name,
-                    "resources/list",
-                    MCP_LIST_TOOLS_TIMEOUT_MS,
-                    process.list_resources(id, Some(McpListResourcesParams { cursor: cursor.clone() })),
-                )
-                .await?
-            };
+            let response =
+                {
+                    let server = self.server_mut(server_name)?;
+                    let process = server.process.as_mut().ok_or_else(|| {
+                        McpManagerError::InvalidResponse {
+                            server_name: server_name.to_string(),
+                            method: "resources/list",
+                            details: "process missing".to_string(),
+                        }
+                    })?;
+                    Self::run_with_timeout(
+                        server_name,
+                        "resources/list",
+                        MCP_LIST_TOOLS_TIMEOUT_MS,
+                        process.list_resources(
+                            id,
+                            Some(McpListResourcesParams {
+                                cursor: cursor.clone(),
+                            }),
+                        ),
+                    )
+                    .await?
+                };
 
             if let Some(error) = response.error {
                 return Err(McpManagerError::JsonRpc {
@@ -537,13 +577,13 @@ impl McpServerManager {
                 });
             }
 
-            let result = response.result.ok_or_else(|| {
-                McpManagerError::InvalidResponse {
+            let result = response
+                .result
+                .ok_or_else(|| McpManagerError::InvalidResponse {
                     server_name: server_name.to_string(),
                     method: "resources/list",
                     details: "missing result".to_string(),
-                }
-            })?;
+                })?;
 
             resources.extend(result.resources);
 
@@ -593,18 +633,25 @@ impl McpServerManager {
         let id = self.take_id();
         let response = {
             let server = self.server_mut(server_name)?;
-            let process = server.process.as_mut().ok_or_else(|| {
-                McpManagerError::InvalidResponse {
-                    server_name: server_name.to_string(),
-                    method: "resources/read",
-                    details: "process missing".to_string(),
-                }
-            })?;
+            let process =
+                server
+                    .process
+                    .as_mut()
+                    .ok_or_else(|| McpManagerError::InvalidResponse {
+                        server_name: server_name.to_string(),
+                        method: "resources/read",
+                        details: "process missing".to_string(),
+                    })?;
             Self::run_with_timeout(
                 server_name,
                 "resources/read",
                 MCP_LIST_TOOLS_TIMEOUT_MS,
-                process.read_resource(id, McpReadResourceParams { uri: uri.to_string() }),
+                process.read_resource(
+                    id,
+                    McpReadResourceParams {
+                        uri: uri.to_string(),
+                    },
+                ),
             )
             .await?
         };
@@ -617,13 +664,13 @@ impl McpServerManager {
             });
         }
 
-        response.result.ok_or_else(|| {
-            McpManagerError::InvalidResponse {
+        response
+            .result
+            .ok_or_else(|| McpManagerError::InvalidResponse {
                 server_name: server_name.to_string(),
                 method: "resources/read",
                 details: "missing result".to_string(),
-            }
-        })
+            })
     }
 
     // -----------------------------------------------------------------------
@@ -653,11 +700,11 @@ impl McpServerManager {
     }
 
     fn server_mut(&mut self, name: &str) -> Result<&mut ManagedMcpServer, McpManagerError> {
-        self.servers.get_mut(name).ok_or_else(|| {
-            McpManagerError::UnknownServer {
+        self.servers
+            .get_mut(name)
+            .ok_or_else(|| McpManagerError::UnknownServer {
                 server_name: name.to_string(),
-            }
-        })
+            })
     }
 
     fn take_id(&mut self) -> JsonRpcId {
@@ -681,12 +728,11 @@ impl McpServerManager {
     async fn ensure_server_ready(&mut self, server_name: &str) -> Result<(), McpManagerError> {
         // Check if process exited.
         let exited = {
-            let server = self
-                .servers
-                .get_mut(server_name)
-                .ok_or_else(|| McpManagerError::UnknownServer {
+            let server = self.servers.get_mut(server_name).ok_or_else(|| {
+                McpManagerError::UnknownServer {
                     server_name: server_name.to_string(),
-                })?;
+                }
+            })?;
             match server.process.as_mut() {
                 Some(p) => p.has_exited()?,
                 None => false,
@@ -711,11 +757,13 @@ impl McpServerManager {
                     let s = self.server_mut(server_name)?;
                     s.config.clone()
                 };
-                let process = McpStdioProcess::spawn(&cfg.command, &cfg.args, &cfg.env)
-                    .map_err(|e| McpManagerError::Transport {
-                        server_name: server_name.to_string(),
-                        method: "spawn",
-                        source: e,
+                let process =
+                    McpStdioProcess::spawn(&cfg.command, &cfg.args, &cfg.env).map_err(|e| {
+                        McpManagerError::Transport {
+                            server_name: server_name.to_string(),
+                            method: "spawn",
+                            source: e,
+                        }
                     })?;
                 let s = self.server_mut(server_name)?;
                 s.process = Some(process);
@@ -733,23 +781,24 @@ impl McpServerManager {
             }
 
             let id = self.take_id();
-            let response = {
-                let server = self.server_mut(server_name)?;
-                let process = server.process.as_mut().ok_or_else(|| {
-                    McpManagerError::InvalidResponse {
-                        server_name: server_name.to_string(),
-                        method: "initialize",
-                        details: "process missing before init".to_string(),
-                    }
-                })?;
-                Self::run_with_timeout(
-                    server_name,
-                    "initialize",
-                    MCP_INITIALIZE_TIMEOUT_MS,
-                    process.initialize(id, default_initialize_params()),
-                )
-                .await
-            };
+            let response =
+                {
+                    let server = self.server_mut(server_name)?;
+                    let process = server.process.as_mut().ok_or_else(|| {
+                        McpManagerError::InvalidResponse {
+                            server_name: server_name.to_string(),
+                            method: "initialize",
+                            details: "process missing before init".to_string(),
+                        }
+                    })?;
+                    Self::run_with_timeout(
+                        server_name,
+                        "initialize",
+                        MCP_INITIALIZE_TIMEOUT_MS,
+                        process.initialize(id, default_initialize_params()),
+                    )
+                    .await
+                };
 
             let response = match response {
                 Ok(r) => r,
@@ -822,7 +871,10 @@ impl McpServerManager {
 }
 
 fn is_retryable(e: &McpManagerError) -> bool {
-    matches!(e, McpManagerError::Transport { .. } | McpManagerError::Timeout { .. })
+    matches!(
+        e,
+        McpManagerError::Transport { .. } | McpManagerError::Timeout { .. }
+    )
 }
 
 fn should_reset(e: &McpManagerError) -> bool {

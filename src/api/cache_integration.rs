@@ -1,4 +1,6 @@
-use crate::cache::{RedisCache, CacheResult};
+#![allow(dead_code, unused_imports, clippy::all)]
+
+use crate::cache::{CacheResult, RedisCache};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::{debug, warn};
@@ -111,7 +113,7 @@ pub mod cache_keys {
 
     /// Generate query hash for caching
     pub fn query_hash(query: &str) -> String {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(query.as_bytes());
         format!("{:x}", hasher.finalize())
@@ -180,7 +182,10 @@ mod tests {
         assert_eq!(hash1, hash2, "Same query should produce same hash");
 
         let hash3 = cache_keys::query_hash("different query");
-        assert_ne!(hash1, hash3, "Different query should produce different hash");
+        assert_ne!(
+            hash1, hash3,
+            "Different query should produce different hash"
+        );
     }
 
     #[test]

@@ -6,11 +6,11 @@
 //! - Inline suggestion (ghost text) display
 //! - Scrolling for files larger than viewport
 
-use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::Frame;
 
 /// Editor mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,7 +95,7 @@ impl EditorState {
     pub fn backspace(&mut self) {
         if self.col > 0 {
             let line = &mut self.lines[self.row];
-            let prev = line[..self.col].chars().rev().next().unwrap();
+            let prev = line[..self.col].chars().next_back().unwrap();
             let len = prev.len_utf8();
             line.drain(self.col - len..self.col);
             self.col -= len;
@@ -111,7 +111,9 @@ impl EditorState {
 
     /// Delete the character at the cursor (delete).
     pub fn delete(&mut self) {
-        if self.lines.is_empty() { return; }
+        if self.lines.is_empty() {
+            return;
+        }
         let line_len = self.lines[self.row].len();
         if self.col < line_len {
             let next = self.lines[self.row][self.col..].chars().next().unwrap();
@@ -127,7 +129,10 @@ impl EditorState {
     /// Move cursor left.
     pub fn move_left(&mut self) {
         if self.col > 0 {
-            let prev = self.lines[self.row][..self.col].chars().rev().next().unwrap();
+            let prev = self.lines[self.row][..self.col]
+                .chars()
+                .next_back()
+                .unwrap();
             self.col -= prev.len_utf8();
         } else if self.row > 0 {
             self.row -= 1;
@@ -138,7 +143,11 @@ impl EditorState {
     /// Move cursor right.
     pub fn move_right(&mut self) {
         if self.col < self.lines[self.row].len() {
-            self.col += self.lines[self.row][self.col..].chars().next().unwrap().len_utf8();
+            self.col += self.lines[self.row][self.col..]
+                .chars()
+                .next()
+                .unwrap()
+                .len_utf8();
         } else if self.row + 1 < self.lines.len() {
             self.row += 1;
             self.col = 0;
@@ -190,7 +199,9 @@ impl EditorState {
 
     /// Ensure cursor is visible (adjust scroll offset).
     pub fn ensure_cursor_visible(&mut self, view_height: usize) {
-        if view_height == 0 { return; }
+        if view_height == 0 {
+            return;
+        }
         if self.row < self.scroll_offset {
             self.scroll_offset = self.row;
         } else if self.row >= self.scroll_offset + view_height {
@@ -226,7 +237,9 @@ impl EditorState {
 
         let view_height = inner.height as usize;
         let width = inner.width as usize;
-        if width == 0 { return; }
+        if width == 0 {
+            return;
+        }
 
         let line_number_w = self.line_number_width;
         let content_width = width.saturating_sub(line_number_w + 2);
@@ -311,7 +324,8 @@ impl EditorState {
                 .fg(theme_color.text_muted)
                 .add_modifier(Modifier::DIM);
             if !lines.is_empty() {
-                *lines.last_mut().unwrap() = Line::from(Span::styled(mode_indicator, indicator_style));
+                *lines.last_mut().unwrap() =
+                    Line::from(Span::styled(mode_indicator, indicator_style));
             }
         }
 

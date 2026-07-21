@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use serde_json::Value as JsonValue;
 use tokio::sync::Mutex;
 
-use crate::mcp::manager::{McpManagerError, McpServerManager, ManagedMcpTool};
+use crate::mcp::manager::{ManagedMcpTool, McpManagerError, McpServerManager};
 use crate::tools::{ToolContext, ToolError, ToolExecutor, ToolRuntime, ToolSpec};
 
 /// Wraps an MCP tool as a [`ToolRuntime`] so it can be registered in the
@@ -28,10 +28,7 @@ pub struct McpToolBridge {
 
 impl McpToolBridge {
     /// Create a new bridge for a managed MCP tool.
-    pub fn new(
-        tool: &ManagedMcpTool,
-        manager: Arc<Mutex<McpServerManager>>,
-    ) -> Self {
+    pub fn new(tool: &ManagedMcpTool, manager: Arc<Mutex<McpServerManager>>) -> Self {
         let input_schema = tool
             .tool
             .input_schema
@@ -100,9 +97,7 @@ pub fn build_mcp_tools(
 
 fn map_error(e: McpManagerError, qualified_name: &str) -> ToolError {
     match e {
-        McpManagerError::Timeout { .. } => {
-            ToolError::Timeout(std::time::Duration::from_secs(60))
-        }
+        McpManagerError::Timeout { .. } => ToolError::Timeout(std::time::Duration::from_secs(60)),
         McpManagerError::UnknownTool { .. } => {
             ToolError::Other(format!("MCP tool `{qualified_name}` not found in index"))
         }

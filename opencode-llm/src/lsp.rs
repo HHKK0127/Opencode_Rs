@@ -159,15 +159,19 @@ impl LspClient {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|e| LlmError::Config(format!("failed to start LSP server `{command}`: {e}")))?;
+            .map_err(|e| {
+                LlmError::Config(format!("failed to start LSP server `{command}`: {e}"))
+            })?;
 
-        let stdin = child.stdin.take().ok_or_else(|| {
-            LlmError::Config("failed to capture LSP server stdin".to_string())
-        })?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| LlmError::Config("failed to capture LSP server stdin".to_string()))?;
 
-        let stdout = child.stdout.take().ok_or_else(|| {
-            LlmError::Config("failed to capture LSP server stdout".to_string())
-        })?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| LlmError::Config("failed to capture LSP server stdout".to_string()))?;
 
         Ok(Self {
             process: Mutex::new(child),
@@ -182,7 +186,11 @@ impl LspClient {
     /// Initialize the LSP server.
     ///
     /// Sends `initialize` and `initialized` notifications.
-    pub fn initialize(&self, root_uri: &str, workspace_folders: Option<Vec<String>>) -> LlmResult<ServerCapabilities> {
+    pub fn initialize(
+        &self,
+        root_uri: &str,
+        workspace_folders: Option<Vec<String>>,
+    ) -> LlmResult<ServerCapabilities> {
         let capabilities = serde_json::json!({
             "textDocument": {
                 "synchronization": {
@@ -229,10 +237,9 @@ impl LspClient {
         });
 
         let response: Value = self.send_request("initialize", params)?;
-        let capabilities: ServerCapabilities = serde_json::from_value(
-            response.get("capabilities").cloned().unwrap_or_default(),
-        )
-        .map_err(|e| LlmError::Json(e))?;
+        let capabilities: ServerCapabilities =
+            serde_json::from_value(response.get("capabilities").cloned().unwrap_or_default())
+                .map_err(LlmError::Json)?;
 
         *self.capabilities.lock().unwrap() = Some(capabilities.clone());
 
@@ -264,7 +271,12 @@ impl LspClient {
     }
 
     /// Request completions at a position.
-    pub fn completion(&self, uri: &str, line: u64, character: u64) -> LlmResult<Vec<CompletionItem>> {
+    pub fn completion(
+        &self,
+        uri: &str,
+        line: u64,
+        character: u64,
+    ) -> LlmResult<Vec<CompletionItem>> {
         let response: Value = self.send_request(
             "textDocument/completion",
             serde_json::json!({
@@ -280,8 +292,7 @@ impl LspClient {
             response
         };
 
-        let items: Vec<CompletionItem> = serde_json::from_value(items)
-            .map_err(|e| LlmError::Json(e))?;
+        let items: Vec<CompletionItem> = serde_json::from_value(items).map_err(LlmError::Json)?;
         Ok(items)
     }
 
@@ -298,12 +309,11 @@ impl LspClient {
         if let Some(contents) = response.get("contents") {
             let value = match contents {
                 Value::String(s) => s.clone(),
-                Value::Object(map) => {
-                    map.get("value")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string()
-                }
+                Value::Object(map) => map
+                    .get("value")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
                 _ => contents.to_string(),
             };
             Ok(Some(value))
@@ -324,9 +334,9 @@ impl LspClient {
 
         // Response can be a single Location or an array.
         let locations: Vec<Location> = if response.is_array() {
-            serde_json::from_value(response).map_err(|e| LlmError::Json(e))?
+            serde_json::from_value(response).map_err(LlmError::Json)?
         } else {
-            let loc: Location = serde_json::from_value(response).map_err(|e| LlmError::Json(e))?;
+            let loc: Location = serde_json::from_value(response).map_err(LlmError::Json)?;
             vec![loc]
         };
         Ok(locations)
@@ -343,8 +353,7 @@ impl LspClient {
             }),
         )?;
 
-        let locations: Vec<Location> = serde_json::from_value(response)
-            .map_err(|e| LlmError::Json(e))?;
+        let locations: Vec<Location> = serde_json::from_value(response).map_err(LlmError::Json)?;
         Ok(locations)
     }
 
@@ -361,8 +370,7 @@ impl LspClient {
             }),
         )?;
 
-        let edits: Vec<TextEdit> = serde_json::from_value(response)
-            .map_err(|e| LlmError::Json(e))?;
+        let edits: Vec<TextEdit> = serde_json::from_value(response).map_err(LlmError::Json)?;
         Ok(edits)
     }
 
@@ -375,8 +383,7 @@ impl LspClient {
             }),
         )?;
 
-        let symbols: Vec<Value> = serde_json::from_value(response)
-            .map_err(|e| LlmError::Json(e))?;
+        let symbols: Vec<Value> = serde_json::from_value(response).map_err(LlmError::Json)?;
         Ok(symbols)
     }
 
@@ -417,16 +424,12 @@ impl LspClient {
 
     /// Write a JSON-RPC message to the server's stdin.
     fn write_message(&self, message: &Value) -> LlmResult<()> {
-        let body = serde_json::to_string(message)
-            .map_err(|e| LlmError::Json(e))?;
+        let body = serde_json::to_string(message).map_err(LlmError::Json)?;
         let header = format!("{LSP_HEADER}: {}\r\n\r\n", body.len());
         let mut stdin = self.stdin.lock().unwrap();
-        stdin.write_all(header.as_bytes())
-            .map_err(|e| LlmError::Io(e))?;
-        stdin.write_all(body.as_bytes())
-            .map_err(|e| LlmError::Io(e))?;
-        stdin.flush()
-            .map_err(|e| LlmError::Io(e))?;
+        stdin.write_all(header.as_bytes()).map_err(LlmError::Io)?;
+        stdin.write_all(body.as_bytes()).map_err(LlmError::Io)?;
+        stdin.flush().map_err(LlmError::Io)?;
         Ok(())
     }
 
@@ -439,10 +442,7 @@ impl LspClient {
             let mut content_length: Option<usize> = None;
             loop {
                 header.clear();
-                if reader.read_line(&mut header)
-                    .map_err(|e| LlmError::Io(e))?
-                    == 0
-                {
+                if reader.read_line(&mut header).map_err(LlmError::Io)? == 0 {
                     return Err(LlmError::StreamClosed);
                 }
                 let trimmed = header.trim();
@@ -450,19 +450,17 @@ impl LspClient {
                     break; // End of headers.
                 }
                 if let Some(len_str) = trimmed.strip_prefix("Content-Length: ") {
-                    content_length = Some(len_str.parse::<usize>().map_err(|_| {
-                        LlmError::Internal("invalid Content-Length".to_string())
-                    })?);
+                    content_length =
+                        Some(len_str.parse::<usize>().map_err(|_| {
+                            LlmError::Internal("invalid Content-Length".to_string())
+                        })?);
                 }
             }
             let len = content_length
                 .ok_or_else(|| LlmError::Internal("missing Content-Length header".to_string()))?;
             let mut buf = vec![0u8; len];
-            reader
-                .read_exact(&mut buf)
-                .map_err(|e| LlmError::Io(e))?;
-            let msg: Value = serde_json::from_slice(&buf)
-                .map_err(|e| LlmError::Json(e))?;
+            reader.read_exact(&mut buf).map_err(LlmError::Io)?;
+            let msg: Value = serde_json::from_slice(&buf).map_err(LlmError::Json)?;
             // Check for response with matching ID.
             if let Some(msg_id) = msg.get("id").and_then(|v| v.as_u64()) {
                 if msg_id == expected_id {
@@ -520,7 +518,10 @@ mod tests {
 
     #[test]
     fn position_creation() {
-        let pos = Position { line: 0, character: 5 };
+        let pos = Position {
+            line: 0,
+            character: 5,
+        };
         assert_eq!(pos.line, 0);
         assert_eq!(pos.character, 5);
     }
@@ -528,8 +529,14 @@ mod tests {
     #[test]
     fn range_creation() {
         let range = Range {
-            start: Position { line: 0, character: 0 },
-            end: Position { line: 1, character: 0 },
+            start: Position {
+                line: 0,
+                character: 0,
+            },
+            end: Position {
+                line: 1,
+                character: 0,
+            },
         };
         assert_eq!(range.start.line, 0);
         assert_eq!(range.end.line, 1);
@@ -551,8 +558,14 @@ mod tests {
     fn diagnostic_creation() {
         let diag = Diagnostic {
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 5 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 5,
+                },
             },
             severity: Some(1),
             message: "test error".to_string(),
@@ -579,8 +592,14 @@ mod tests {
         let loc = Location {
             uri: "file:///test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 1, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 0,
+                },
             },
         };
         assert_eq!(loc.uri, "file:///test.rs");
@@ -590,8 +609,14 @@ mod tests {
     fn text_edit_creation() {
         let edit = TextEdit {
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 5 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 5,
+                },
             },
             new_text: "hello".to_string(),
         };
@@ -605,8 +630,14 @@ mod tests {
             "file:///test.rs".to_string(),
             vec![TextEdit {
                 range: Range {
-                    start: Position { line: 0, character: 0 },
-                    end: Position { line: 0, character: 5 },
+                    start: Position {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: Position {
+                        line: 0,
+                        character: 5,
+                    },
                 },
                 new_text: "hello".to_string(),
             }],

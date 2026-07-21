@@ -1,4 +1,4 @@
-use opencode_core::{OpenCodeServer, config::OpenCodeConfig};
+use opencode_core::{config::OpenCodeConfig, OpenCodeServer};
 use tracing_subscriber::EnvFilter;
 
 #[actix_web::main]

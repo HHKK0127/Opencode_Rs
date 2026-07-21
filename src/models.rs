@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use serde::{Deserialize, Serialize};
 
 // ============================================================
@@ -6,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T: Serialize> {
-    pub status: String,         // "success" or "error"
-    pub data: Option<T>,        // Response data (null on error)
+    pub status: String,          // "success" or "error"
+    pub data: Option<T>,         // Response data (null on error)
     pub error: Option<ApiError>, // Error details (null on success)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<String>, // ISO 8601 timestamp
@@ -15,8 +16,8 @@ pub struct ApiResponse<T: Serialize> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiError {
-    pub code: String,           // Error code (e.g., "UNAUTHORIZED", "VALIDATION_ERROR")
-    pub message: String,        // User-facing message
+    pub code: String,    // Error code (e.g., "UNAUTHORIZED", "VALIDATION_ERROR")
+    pub message: String, // User-facing message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<String>, // Technical details (dev only)
 }

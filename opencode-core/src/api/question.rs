@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, web};
+use actix_web::{web, HttpResponse};
 use parking_lot::RwLock;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -29,7 +29,8 @@ pub async fn list_questions(
     store: web::Data<QuestionStore>,
 ) -> HttpResponse {
     let questions = store.read();
-    let items: Vec<&QuestionV2Request> = questions.values()
+    let items: Vec<&QuestionV2Request> = questions
+        .values()
         .filter(|q| q.session_id == path.id)
         .collect();
     HttpResponse::Ok().json(serde_json::json!({ "data": items }))
@@ -44,11 +45,15 @@ pub async fn reply_question(
     let mut questions = store.write();
     questions.remove(&path.request_id);
 
-    crate::api::events::emit_event(&bus, "question.v2.replied", serde_json::json!({
-        "sessionID": path.id,
-        "requestID": path.request_id,
-        "answers": body.answers,
-    }));
+    crate::api::events::emit_event(
+        &bus,
+        "question.v2.replied",
+        serde_json::json!({
+            "sessionID": path.id,
+            "requestID": path.request_id,
+            "answers": body.answers,
+        }),
+    );
 
     HttpResponse::NoContent().finish()
 }
@@ -61,10 +66,14 @@ pub async fn reject_question(
     let mut questions = store.write();
     questions.remove(&path.request_id);
 
-    crate::api::events::emit_event(&bus, "question.v2.rejected", serde_json::json!({
-        "sessionID": path.id,
-        "requestID": path.request_id,
-    }));
+    crate::api::events::emit_event(
+        &bus,
+        "question.v2.rejected",
+        serde_json::json!({
+            "sessionID": path.id,
+            "requestID": path.request_id,
+        }),
+    );
 
     HttpResponse::NoContent().finish()
 }

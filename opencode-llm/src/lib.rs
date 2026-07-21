@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 //! # opencode-llm
 //!
 //! LLM client library for OpenCode_Rs.
@@ -49,8 +51,6 @@
 //! # Ok(()) }
 //! ```
 
-#![warn(missing_docs)]
-
 pub mod auth;
 pub mod cache;
 pub mod config;
@@ -63,10 +63,10 @@ pub mod mcp;
 pub mod oauth;
 pub mod permissions;
 pub mod plugin;
-pub mod session;
 pub mod pricing;
 pub mod providers;
 pub mod registry;
+pub mod session;
 pub mod sse;
 pub mod tools;
 pub mod types;
@@ -84,10 +84,10 @@ pub use types::{
 /// Re-exports for the most common items.
 pub mod prelude {
     pub use crate::auth::AuthSource;
+    pub use crate::config::LlmConfig;
     pub use crate::conversation::{ConversationRuntime, ConversationRuntimeBuilder};
     pub use crate::error::{LlmError, LlmResult};
     pub use crate::events::{AssistantEvent, StreamEvent};
-    pub use crate::config::LlmConfig;
     pub use crate::providers::anthropic::AnthropicClient;
     pub use crate::providers::openai_compat::OpenAiCompatClient;
     pub use crate::providers::Provider;

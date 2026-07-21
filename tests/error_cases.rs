@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 use actix_web::{test, web, App};
 use opencode_poc::api;
 use opencode_poc::app_state::AppState;
@@ -11,8 +13,9 @@ async fn test_invalid_json_payload() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/login")
@@ -31,8 +34,9 @@ async fn test_register_duplicate_username() {
     let app = test::init_service(
         App::new()
             .app_data(web::Data::new(app_state))
-            .configure(api::configure)
-    ).await;
+            .configure(api::configure),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/auth/register")
@@ -54,11 +58,9 @@ async fn test_missing_required_auth_header() {
         App::new()
             .app_data(web::Data::new(app_state))
             .wrap(opencode_poc::auth_middleware::AuthMiddleware)
-            .service(
-                web::scope("/api/v1")
-                    .configure(api::configure)
-            )
-    ).await;
+            .service(web::scope("/api/v1").configure(api::configure)),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/users/profile")
@@ -76,11 +78,9 @@ async fn test_malformed_auth_header() {
         App::new()
             .app_data(web::Data::new(app_state))
             .wrap(opencode_poc::auth_middleware::AuthMiddleware)
-            .service(
-                web::scope("/api/v1")
-                    .configure(api::configure)
-            )
-    ).await;
+            .service(web::scope("/api/v1").configure(api::configure)),
+    )
+    .await;
 
     let req = test::TestRequest::post()
         .uri("/api/v1/users/profile")

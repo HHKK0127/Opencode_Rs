@@ -22,8 +22,7 @@ fn session_name(query: &SessionQuery) -> String {
 fn map_error(e: BrowserError) -> HttpResponse {
     match e {
         BrowserError::ChromeNotFound | BrowserError::NotRunning => {
-            HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({"error": e.to_string()}))
+            HttpResponse::ServiceUnavailable().json(serde_json::json!({"error": e.to_string()}))
         }
         BrowserError::NavigationTimeout { .. } => {
             HttpResponse::GatewayTimeout().json(serde_json::json!({"error": e.to_string()}))
@@ -34,8 +33,7 @@ fn map_error(e: BrowserError) -> HttpResponse {
         BrowserError::PathTraversal(_) => {
             HttpResponse::Forbidden().json(serde_json::json!({"error": e.to_string()}))
         }
-        _ => HttpResponse::InternalServerError()
-            .json(serde_json::json!({"error": e.to_string()})),
+        _ => HttpResponse::InternalServerError().json(serde_json::json!({"error": e.to_string()})),
     }
 }
 
@@ -50,7 +48,10 @@ pub async fn navigate(
         return HttpResponse::BadRequest().json(serde_json::json!({"error": e.to_string()}));
     }
     let session = session_name(&query);
-    match browser.navigate(&session, body.into_inner(), bus.get_ref()).await {
+    match browser
+        .navigate(&session, body.into_inner(), bus.get_ref())
+        .await
+    {
         Ok(resp) => HttpResponse::Ok().json(resp),
         Err(e) => map_error(e),
     }

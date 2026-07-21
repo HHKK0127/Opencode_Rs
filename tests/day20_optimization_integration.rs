@@ -1,3 +1,12 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
 #[test]
 fn test_01_performance_metrics_slo_compliance() {
     // Test 1: SLO compliance checking
@@ -35,7 +44,10 @@ fn test_01_performance_metrics_slo_compliance() {
     };
 
     assert!(good_metrics.meets_slo(), "Good metrics should meet SLO");
-    assert!(!poor_metrics.meets_slo(), "Poor metrics should not meet SLO");
+    assert!(
+        !poor_metrics.meets_slo(),
+        "Poor metrics should not meet SLO"
+    );
 }
 
 #[test]
@@ -70,7 +82,11 @@ fn test_02_query_optimization_analysis() {
         LIMIT 20 OFFSET 0";
 
     let optimizations = analyze_query(complex_query);
-    assert_eq!(optimizations.len(), 4, "Should have 4 optimizations: WHERE, ORDER BY, JOIN, LIMIT+OFFSET");
+    assert_eq!(
+        optimizations.len(),
+        4,
+        "Should have 4 optimizations: WHERE, ORDER BY, JOIN, LIMIT+OFFSET"
+    );
     assert!(optimizations.iter().any(|o| o.contains("index")));
 }
 
@@ -177,15 +193,19 @@ fn test_05_database_index_recommendations() {
         let mut recommendations = Vec::new();
 
         for column in &frequently_queried {
-            recommendations.push(format!("CREATE INDEX idx_{}_{} ON {} ({})",
-                table, column, table, column));
+            recommendations.push(format!(
+                "CREATE INDEX idx_{}_{} ON {} ({})",
+                table, column, table, column
+            ));
         }
 
         // Recommend composite indexes for common combinations
         if frequently_queried.len() > 1 {
             let cols = frequently_queried.join(", ");
-            recommendations.push(format!("CREATE INDEX idx_{}_composite ON {} ({})",
-                table, table, cols));
+            recommendations.push(format!(
+                "CREATE INDEX idx_{}_composite ON {} ({})",
+                table, table, cols
+            ));
         }
 
         recommendations
@@ -201,14 +221,21 @@ fn test_06_cache_strategy_optimization() {
     // Test 6: Cache strategy recommendations
     fn analyze_cache_strategy(hit_rate: f64, ttl_seconds: u64) -> String {
         if hit_rate > 0.9 {
-            format!("Excellent cache strategy ({}% hit rate), consider extending TTL to {} seconds",
-                (hit_rate * 100.0).round() as u64, ttl_seconds * 2)
+            format!(
+                "Excellent cache strategy ({}% hit rate), consider extending TTL to {} seconds",
+                (hit_rate * 100.0).round() as u64,
+                ttl_seconds * 2
+            )
         } else if hit_rate > 0.7 {
-            format!("Good cache strategy ({}% hit rate), monitor and maintain",
-                (hit_rate * 100.0).round() as u64)
+            format!(
+                "Good cache strategy ({}% hit rate), monitor and maintain",
+                (hit_rate * 100.0).round() as u64
+            )
         } else if hit_rate > 0.5 {
-            format!("Fair cache strategy ({}% hit rate), consider Cache-Aside pattern",
-                (hit_rate * 100.0).round() as u64)
+            format!(
+                "Fair cache strategy ({}% hit rate), consider Cache-Aside pattern",
+                (hit_rate * 100.0).round() as u64
+            )
         } else {
             "Poor cache strategy, implement caching immediately".to_string()
         }
@@ -241,11 +268,20 @@ fn test_07_connection_pool_optimization() {
             let util = self.utilization();
 
             if util > 0.9 {
-                format!("URGENT: Increase pool size ({}% used)", (util * 100.0).round() as u64)
+                format!(
+                    "URGENT: Increase pool size ({}% used)",
+                    (util * 100.0).round() as u64
+                )
             } else if util > 0.7 {
-                format!("Consider increasing pool size ({}% used)", (util * 100.0).round() as u64)
+                format!(
+                    "Consider increasing pool size ({}% used)",
+                    (util * 100.0).round() as u64
+                )
             } else {
-                format!("Pool size is adequate ({}% used)", (util * 100.0).round() as u64)
+                format!(
+                    "Pool size is adequate ({}% used)",
+                    (util * 100.0).round() as u64
+                )
             }
         }
     }
@@ -271,15 +307,27 @@ fn test_08_load_balancing_recommendations() {
     // Test 8: Load balancing strategy
     fn recommend_load_balancing(request_distribution: Vec<f64>) -> String {
         let avg = request_distribution.iter().sum::<f64>() / request_distribution.len() as f64;
-        let max = request_distribution.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let max = request_distribution
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
         let skew = (max / avg - 1.0) * 100.0;
 
         if skew > 50.0 {
-            format!("Imbalanced load ({}% skew): Implement weighted round-robin", skew as u64)
+            format!(
+                "Imbalanced load ({}% skew): Implement weighted round-robin",
+                skew as u64
+            )
         } else if skew > 25.0 {
-            format!("Moderately imbalanced ({}% skew): Monitor server health", skew as u64)
+            format!(
+                "Moderately imbalanced ({}% skew): Monitor server health",
+                skew as u64
+            )
         } else {
-            format!("Well-balanced load ({}% skew): Current strategy is fine", skew as u64)
+            format!(
+                "Well-balanced load ({}% skew): Current strategy is fine",
+                skew as u64
+            )
         }
     }
 

@@ -37,8 +37,12 @@ pub struct GrepSearchTool;
 
 #[async_trait::async_trait]
 impl super::ToolRuntime for GrepSearchTool {
-    fn name(&self) -> &str { NAME }
-    fn spec(&self) -> ToolSpec { spec() }
+    fn name(&self) -> &str {
+        NAME
+    }
+    fn spec(&self) -> ToolSpec {
+        spec()
+    }
 
     async fn execute(&self, args: Value, ctx: &ToolContext) -> Result<String, ToolError> {
         let pattern = args
@@ -62,7 +66,8 @@ impl super::ToolRuntime for GrepSearchTool {
                 .arg("--with-filename")
                 .arg("--line-number")
                 .arg("-n")
-                .arg("-C").arg("2");
+                .arg("-C")
+                .arg("2");
             if let Some(ref g) = glob_owned {
                 cmd.arg("--glob").arg(g);
             }
@@ -73,7 +78,11 @@ impl super::ToolRuntime for GrepSearchTool {
             let output = cmd.output().map_err(ToolError::Io)?;
             if output.status.success() {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-                if stdout.is_empty() { Ok("(no matches)".to_string()) } else { Ok(stdout) }
+                if stdout.is_empty() {
+                    Ok("(no matches)".to_string())
+                } else {
+                    Ok(stdout)
+                }
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                 if stderr.contains("not found") || stderr.contains("No such file") {

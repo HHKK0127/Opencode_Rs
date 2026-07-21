@@ -88,8 +88,14 @@ pub fn estimate_cost(model: &str, usage: &crate::types::Usage) -> UsageCostEstim
     UsageCostEstimate {
         input_usd: f(usage.input_tokens, pricing.input_per_million),
         output_usd: f(usage.output_tokens, pricing.output_per_million),
-        cache_read_usd: f(usage.cache_read_input_tokens, pricing.cache_read_per_million),
-        cache_write_usd: f(usage.cache_creation_input_tokens, pricing.cache_write_per_million),
+        cache_read_usd: f(
+            usage.cache_read_input_tokens,
+            pricing.cache_read_per_million,
+        ),
+        cache_write_usd: f(
+            usage.cache_creation_input_tokens,
+            pricing.cache_write_per_million,
+        ),
     }
 }
 

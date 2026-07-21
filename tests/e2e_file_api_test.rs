@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 // E2E File API Tests (PostgreSQL)
 //
 // Migrated from tests/legacy/e2e_s3_metadata_test.rs
@@ -31,7 +33,10 @@ async fn test_list_files_with_pagination() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let body: serde_json::Value = test::read_body_json(resp).await;
-    assert!(body.get("files").is_some(), "Response should contain files array");
+    assert!(
+        body.get("files").is_some(),
+        "Response should contain files array"
+    );
 
     println!("✅ Test 1: List files with pagination returns 200 OK");
 }
@@ -119,10 +124,11 @@ async fn test_delete_file_not_found() {
 async fn test_file_database_schema() {
     let pool = fixtures::setup_test_db().await;
 
-    let columns: Vec<(i32,)> = sqlx::query_as("SELECT 1 FROM information_schema.columns WHERE table_name = 'files'")
-        .fetch_all(&pool)
-        .await
-        .expect("Failed to get columns");
+    let columns: Vec<(i32,)> =
+        sqlx::query_as("SELECT 1 FROM information_schema.columns WHERE table_name = 'files'")
+            .fetch_all(&pool)
+            .await
+            .expect("Failed to get columns");
 
     assert!(!columns.is_empty(), "Files table should have columns");
 
@@ -152,7 +158,10 @@ async fn test_response_structure() {
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert!(body.is_object(), "Response should be a JSON object");
-    assert!(body.get("files").is_some(), "Response should contain 'files' key");
+    assert!(
+        body.get("files").is_some(),
+        "Response should contain 'files' key"
+    );
 
     println!("✅ Test 6: Response structure verified");
 }

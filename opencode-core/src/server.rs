@@ -1,8 +1,8 @@
-use actix_web::{web, App, HttpServer, middleware::Logger};
 use crate::api;
 use crate::auth;
 use crate::browser::BrowserManager;
 use crate::config::{OpenCodeConfig, UiMode};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
@@ -53,7 +53,10 @@ impl OpenCodeServer {
                     Some(web::Data::new(mgr))
                 }
                 Err(e) => {
-                    log::warn!("Browser manager launch failed: {}. Browser features disabled.", e);
+                    log::warn!(
+                        "Browser manager launch failed: {}. Browser features disabled.",
+                        e
+                    );
                     None
                 }
             }
@@ -62,10 +65,7 @@ impl OpenCodeServer {
             None
         };
 
-        let basic_auth = auth::BasicAuth::new(
-            config.username.clone(),
-            config.password.clone(),
-        );
+        let basic_auth = auth::BasicAuth::new(config.username.clone(), config.password.clone());
 
         let server = HttpServer::new(move || {
             let mut app = App::new()
@@ -143,7 +143,10 @@ fn launch_via_shellexecute(url: &str) {
     if result as usize > 32 {
         log::info!("Edge app window launched: {}", url);
     } else {
-        log::warn!("ShellExecuteW failed (code {}), falling back to cmd", result as usize);
+        log::warn!(
+            "ShellExecuteW failed (code {}), falling back to cmd",
+            result as usize
+        );
         let _ = std::process::Command::new("cmd")
             .args(["/c", "start", "", exe, &args])
             .spawn();
@@ -156,13 +159,9 @@ fn open_browser(url: &str) {
             .args(["/c", "start", url])
             .spawn()
     } else if cfg!(target_os = "macos") {
-        std::process::Command::new("open")
-            .arg(url)
-            .spawn()
+        std::process::Command::new("open").arg(url).spawn()
     } else {
-        std::process::Command::new("xdg-open")
-            .arg(url)
-            .spawn()
+        std::process::Command::new("xdg-open").arg(url).spawn()
     };
 
     match result {

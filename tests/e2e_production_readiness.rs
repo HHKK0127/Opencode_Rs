@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 use actix_web::test;
 use reqwest::Client;
 use serde_json::Value;
@@ -97,11 +99,10 @@ async fn test_production_complete_file_workflow() {
     let upload_res = client
         .post(&format!("{}/files/upload", API_BASE))
         .header("Authorization", format!("Bearer {}", token))
-        .multipart(
-            reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(b"E2E test file".to_vec())
-                    .file_name("e2e_test.txt"))
-        )
+        .multipart(reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(b"E2E test file".to_vec()).file_name("e2e_test.txt"),
+        ))
         .send()
         .await
         .expect("Upload failed");
@@ -225,9 +226,16 @@ async fn test_production_concurrent_requests() {
     }
 
     let results: Vec<_> = futures::future::join_all(handles).await;
-    let success_count = results.into_iter().filter_map(|r| r.ok()).filter(|r| *r).count();
+    let success_count = results
+        .into_iter()
+        .filter_map(|r| r.ok())
+        .filter(|r| *r)
+        .count();
 
-    assert!(success_count >= 18, "At least 18/20 requests should succeed");
+    assert!(
+        success_count >= 18,
+        "At least 18/20 requests should succeed"
+    );
     println!("✓ Concurrent requests: {}/20 successful", success_count);
 }
 

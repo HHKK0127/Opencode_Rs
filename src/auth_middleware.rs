@@ -1,13 +1,18 @@
+#![allow(dead_code)]
 use actix_web::{
-    body::EitherBody, dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    Error, HttpMessage, HttpResponse, web,
+    body::EitherBody,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    web, Error, HttpMessage, HttpResponse,
 };
 use futures::future::{ok, Ready};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use std::pin::Pin;
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use std::rc::Rc;
 
-use crate::{error::AppError, models::Claims, app_state::AppState, cache::session::SessionManager, config::JWT_SECRET};
+use crate::{
+    app_state::AppState, cache::session::SessionManager, config::JWT_SECRET, error::AppError,
+    models::Claims,
+};
 use tracing::warn;
 
 pub struct AuthMiddleware;

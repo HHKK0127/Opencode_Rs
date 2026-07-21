@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::error::{AppError, AppResult};
 use uuid::Uuid;
 
@@ -70,9 +71,10 @@ impl FileValidator {
         }
 
         if filename.len() > self.rules.max_filename_length {
-            return Err(AppError::BadRequest(
-                format!("Filename exceeds max length of {}", self.rules.max_filename_length),
-            ));
+            return Err(AppError::BadRequest(format!(
+                "Filename exceeds max length of {}",
+                self.rules.max_filename_length
+            )));
         }
 
         // Check for path traversal attempts
@@ -83,16 +85,13 @@ impl FileValidator {
         }
 
         // Validate against disallowed extensions
-        let ext = filename
-            .split('.')
-            .last()
-            .unwrap_or("")
-            .to_lowercase();
+        let ext = filename.split('.').next_back().unwrap_or("").to_lowercase();
 
         if self.rules.disallowed_extensions.contains(&ext) {
-            return Err(AppError::BadRequest(
-                format!("File extension .{} is not allowed", ext),
-            ));
+            return Err(AppError::BadRequest(format!(
+                "File extension .{} is not allowed",
+                ext
+            )));
         }
 
         Ok(())
@@ -100,21 +99,21 @@ impl FileValidator {
 
     /// Validate MIME type
     pub fn validate_mime_type(&self, mime_type: &str) -> AppResult<()> {
-        if !self.rules.allowed_mime_types.contains(&mime_type.to_string()) {
-            return Err(AppError::BadRequest(
-                format!("MIME type {} is not allowed", mime_type),
-            ));
+        if !self
+            .rules
+            .allowed_mime_types
+            .contains(&mime_type.to_string())
+        {
+            return Err(AppError::BadRequest(format!(
+                "MIME type {} is not allowed",
+                mime_type
+            )));
         }
         Ok(())
     }
 
     /// Comprehensive file validation
-    pub fn validate_file(
-        &self,
-        filename: &str,
-        mime_type: &str,
-        size: usize,
-    ) -> AppResult<()> {
+    pub fn validate_file(&self, filename: &str, mime_type: &str, size: usize) -> AppResult<()> {
         self.validate_filename(filename)?;
         self.validate_mime_type(mime_type)?;
         self.validate_size(size)?;
@@ -144,9 +143,8 @@ pub fn validate_page(page: Option<u32>) -> u32 {
 
 /// per_pageの検証（1-100）
 pub fn validate_per_page(per_page: Option<u32>) -> u32 {
-    per_page.unwrap_or(20).min(100).max(1)
+    per_page.unwrap_or(20).clamp(1, 100)
 }
-
 
 /// Validate request headers for security
 pub fn validate_content_length(content_length: Option<u64>, max_bytes: usize) -> AppResult<()> {

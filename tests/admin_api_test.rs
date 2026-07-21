@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 // Admin API Integration Tests (PostgreSQL)
 
 use actix_web::{http::StatusCode, test, web, App};
@@ -24,7 +26,10 @@ async fn test_admin_db_status() {
         .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert!(resp.status().is_success(), "DB status should return success");
+    assert!(
+        resp.status().is_success(),
+        "DB status should return success"
+    );
 
     let body: serde_json::Value = test::read_body_json(resp).await;
     assert_eq!(body["status"], "healthy");
@@ -49,7 +54,10 @@ async fn test_admin_migration_history() {
         .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert!(resp.status().is_success(), "Migration history should return success");
+    assert!(
+        resp.status().is_success(),
+        "Migration history should return success"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +79,10 @@ async fn test_admin_analyze_database() {
         .to_request();
 
     let resp = test::call_service(&app, req).await;
-    assert!(resp.status().is_success(), "Analyze database should return success");
+    assert!(
+        resp.status().is_success(),
+        "Analyze database should return success"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -95,5 +106,8 @@ async fn test_admin_db_status_structure() {
     let resp = test::call_service(&app, req).await;
     let body: serde_json::Value = test::read_body_json(resp).await;
 
-    assert!(body.get("database").is_some(), "Response should contain database info");
+    assert!(
+        body.get("database").is_some(),
+        "Response should contain database info"
+    );
 }

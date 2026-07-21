@@ -1,9 +1,11 @@
+#![allow(dead_code)]
 use actix_web::{
-    body::EitherBody, dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    body::EitherBody,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse,
 };
 use futures_util::future::LocalBoxFuture;
-use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use std::rc::Rc;
 
 use crate::{error::AppError, models::Claims};

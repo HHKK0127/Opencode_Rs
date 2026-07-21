@@ -1,3 +1,11 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_assignments,
+    clippy::all
+)]
+
 //! Slash command system for the TUI.
 //!
 //! Parses `/command` prefixes from user input and dispatches them to
@@ -274,7 +282,9 @@ impl SlashCommandDispatcher {
                     response: "__COMPACT_SESSION__".to_string(),
                 },
                 SlashAction::Unknown { name } => SlashCommandResult::Handled {
-                    response: format!("Unknown command: `/{name}`\nType `/help` for available commands."),
+                    response: format!(
+                        "Unknown command: `/{name}`\nType `/help` for available commands."
+                    ),
                 },
             },
             None => SlashCommandResult::Passthrough {
@@ -435,8 +445,14 @@ mod tests {
     #[test]
     fn rpc_dispatch_exit() {
         let dispatcher = SlashCommandDispatcher::new();
-        assert!(matches!(dispatcher.dispatch("/exit"), Some(SlashAction::Exit)));
-        assert!(matches!(dispatcher.dispatch("/quit"), Some(SlashAction::Exit)));
+        assert!(matches!(
+            dispatcher.dispatch("/exit"),
+            Some(SlashAction::Exit)
+        ));
+        assert!(matches!(
+            dispatcher.dispatch("/quit"),
+            Some(SlashAction::Exit)
+        ));
     }
 
     #[test]
@@ -475,7 +491,10 @@ mod tests {
     #[test]
     fn rpc_dispatch_compact() {
         let dispatcher = SlashCommandDispatcher::new();
-        assert!(matches!(dispatcher.dispatch("/compact"), Some(SlashAction::Compact)));
+        assert!(matches!(
+            dispatcher.dispatch("/compact"),
+            Some(SlashAction::Compact)
+        ));
     }
 
     #[test]

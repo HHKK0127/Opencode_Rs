@@ -37,8 +37,12 @@ pub struct EditFileTool;
 
 #[async_trait::async_trait]
 impl super::ToolRuntime for EditFileTool {
-    fn name(&self) -> &str { NAME }
-    fn spec(&self) -> ToolSpec { spec() }
+    fn name(&self) -> &str {
+        NAME
+    }
+    fn spec(&self) -> ToolSpec {
+        spec()
+    }
 
     async fn execute(&self, args: Value, ctx: &ToolContext) -> Result<String, ToolError> {
         if !ctx.can_write {
@@ -66,7 +70,9 @@ impl super::ToolRuntime for EditFileTool {
             )));
         }
         let new_content = content.replace(old_str, new_str);
-        fs::write(&path, &new_content).await.map_err(ToolError::Io)?;
+        fs::write(&path, &new_content)
+            .await
+            .map_err(ToolError::Io)?;
         Ok(format!("replaced 1 occurrence in {}", path.display()))
     }
 }

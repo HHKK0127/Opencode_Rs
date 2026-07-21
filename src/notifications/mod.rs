@@ -1,9 +1,9 @@
-pub mod event;
-pub mod channel;
 pub mod broadcaster;
+pub mod channel;
+pub mod event;
 pub mod hermes;
 
-pub use event::{Event, EventType, EventData};
-pub use channel::{NotificationChannel, ChannelMessage};
-pub use broadcaster::{EventBroadcaster, BroadcasterConfig};
-pub use hermes::{HermesAnalytics, StatisticsCollector, AnalyticsReport};
+pub use broadcaster::{BroadcasterConfig, EventBroadcaster};
+pub use channel::{ChannelMessage, NotificationChannel};
+pub use event::{Event, EventData, EventType};
+pub use hermes::{AnalyticsReport, HermesAnalytics, StatisticsCollector};

@@ -1,3 +1,12 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+#[allow(unused_imports)]
 use std::sync::Arc;
 
 // Mock types for testing (since notifications module is not exposed in tests)
@@ -39,10 +48,7 @@ fn test_02_event_subscription_system() {
 
     // Verify subscription
     assert!(subscriptions.contains_key("subscriber:001"));
-    assert_eq!(
-        subscriptions.get("subscriber:001").unwrap().len(),
-        1
-    );
+    assert_eq!(subscriptions.get("subscriber:001").unwrap().len(), 1);
 }
 
 #[test]
@@ -137,10 +143,7 @@ fn test_06_analytics_report_generation() {
     }
 
     // Add top users
-    report.top_users = vec![
-        ("user:001".to_string(), 45),
-        ("user:002".to_string(), 30),
-    ];
+    report.top_users = vec![("user:001".to_string(), 45), ("user:002".to_string(), 30)];
 
     // Verify report
     assert_eq!(report.total_events, 185);

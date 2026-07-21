@@ -110,7 +110,10 @@ impl PerformanceOptimizer {
             report.push_str(&format!("  P99 Latency: {:.2}ms\n", m.p99_latency_ms));
             report.push_str(&format!("  Throughput: {:.0} req/s\n", m.throughput_rps));
             report.push_str(&format!("  Error Rate: {:.2}%\n", m.error_rate * 100.0));
-            report.push_str(&format!("  Cache Hit Rate: {:.1}%\n", m.cache_hit_rate * 100.0));
+            report.push_str(&format!(
+                "  Cache Hit Rate: {:.1}%\n",
+                m.cache_hit_rate * 100.0
+            ));
             report.push_str(&format!("  SLO Met: {}\n\n", m.meets_slo()));
         }
 
@@ -174,7 +177,9 @@ mod tests {
             cache_hit_rate: 0.82,
         };
 
-        optimizer.record_metrics("/api/files".to_string(), metrics).await;
+        optimizer
+            .record_metrics("/api/files".to_string(), metrics)
+            .await;
 
         let strategies = optimizer.get_strategies();
         assert!(!strategies.is_empty());

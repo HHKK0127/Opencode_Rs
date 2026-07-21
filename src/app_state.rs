@@ -1,4 +1,4 @@
-use crate::cache::{RedisCache, CacheTTLConfig};
+use crate::cache::{CacheTTLConfig, RedisCache};
 use crate::config::Settings;
 use crate::storage::StorageBackend;
 use sqlx::sqlite::SqlitePool;
@@ -39,7 +39,10 @@ impl AppState {
 
     /// Get server bind address from cached settings
     pub fn server_addr(&self) -> String {
-        format!("{}:{}", self.settings.server.host, self.settings.server.port)
+        format!(
+            "{}:{}",
+            self.settings.server.host, self.settings.server.port
+        )
     }
 
     /// Check if cache is available

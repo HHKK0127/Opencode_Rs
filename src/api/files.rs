@@ -1,23 +1,30 @@
+#![allow(dead_code)]
 use actix_multipart::Multipart;
-use actix_web::{post, get, delete, web, HttpResponse};
+use actix_web::{delete, get, post, web, HttpResponse};
+use bytes::Bytes;
 use chrono::Utc;
 use futures::TryStreamExt;
-use sha2::{Sha256, Digest};
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
-use bytes::Bytes;
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
-use crate::error::{AppError, AppResult};
 use crate::app_state::AppState;
-use crate::storage::{FileMetadata as StorageFileMetadata};
-use crate::validation::FileValidator;
-use crate::cache::metrics::{REDIS_OPERATIONS_TOTAL, REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL};
+use crate::cache::metrics::{
+    REDIS_CACHE_HITS_TOTAL, REDIS_CACHE_MISSES_TOTAL, REDIS_OPERATIONS_TOTAL,
+};
 use crate::cache::UploadSessionManager;
-use crate::models::{ChunkedUploadInitRequest, ChunkedUploadInitResponse, ChunkedUploadProgressResponse, ChunkedUploadCompleteResponse};
+use crate::error::{AppError, AppResult};
+use crate::models::{
+    ChunkedUploadCompleteResponse, ChunkedUploadInitRequest, ChunkedUploadInitResponse,
+    ChunkedUploadProgressResponse,
+};
+use crate::storage::FileMetadata as StorageFileMetadata;
+use crate::validation::FileValidator;
 
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // Wave 2: 100MB
 
 #[post("/files/upload")]
+#[allow(clippy::never_loop)]
 pub async fn upload_file(
     app_state: web::Data<AppState>,
     mut payload: Multipart,
@@ -30,7 +37,7 @@ pub async fn upload_file(
 
         let original_filename = content_disposition
             .get_filename()
-            .map(|f| crate::validation::sanitize_filename(f))
+            .map(crate::validation::sanitize_filename)
             .ok_or_else(|| AppError::BadRequest("Filename required".to_string()))?;
 
         let file_id = Uuid::new_v4().to_string();
@@ -68,7 +75,8 @@ pub async fn upload_file(
             user_id: Uuid::new_v4(),
         };
 
-        app_state.storage
+        app_state
+            .storage
             .store(Bytes::from(buffer), file_metadata)
             .await
             .map_err(|_| AppError::Internal)?;
@@ -95,7 +103,9 @@ pub async fn upload_file(
                 }
             }
             let _ = cache.delete("files:search:*").await.ok();
-            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_invalidate_on_upload"]).inc();
+            REDIS_OPERATIONS_TOTAL
+                .with_label_values(&["api_invalidate_on_upload"])
+                .inc();
         }
 
         return Ok(HttpResponse::Ok().json(serde_json::json!({
@@ -135,11 +145,15 @@ pub async fn get_file_metadata(
     if let Some(cache) = &app_state.cache {
         if let Ok(Some(cached)) = cache.get::<FileMetadataResponse>(&cache_key).await {
             REDIS_CACHE_HITS_TOTAL.inc();
-            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_metadata_cache_hit"]).inc();
+            REDIS_OPERATIONS_TOTAL
+                .with_label_values(&["api_metadata_cache_hit"])
+                .inc();
             return Ok(HttpResponse::Ok().json(cached));
         } else {
             REDIS_CACHE_MISSES_TOTAL.inc();
-            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_metadata_cache_miss"]).inc();
+            REDIS_OPERATIONS_TOTAL
+                .with_label_values(&["api_metadata_cache_miss"])
+                .inc();
         }
     }
 
@@ -167,7 +181,9 @@ pub async fn get_file_metadata(
     if let Some(cache) = &app_state.cache {
         let ttl = app_state.get_ttl_config().file_metadata();
         let _ = cache.set(&cache_key, &response, Some(ttl)).await;
-        REDIS_OPERATIONS_TOTAL.with_label_values(&["api_metadata_cache_set"]).inc();
+        REDIS_OPERATIONS_TOTAL
+            .with_label_values(&["api_metadata_cache_set"])
+            .inc();
     }
 
     Ok(HttpResponse::Ok().json(response))
@@ -182,7 +198,7 @@ pub async fn download_file(
     let file_id = path.into_inner();
 
     let file = sqlx::query_as::<_, (String, String, i64)>(
-        "SELECT id, original_name, size FROM files WHERE id = $1"
+        "SELECT id, original_name, size FROM files WHERE id = $1",
     )
     .bind(&file_id)
     .fetch_optional(&app_state.db)
@@ -192,7 +208,8 @@ pub async fn download_file(
 
     let file_size = file.2;
 
-    let file_content = app_state.storage
+    let file_content = app_state
+        .storage
         .retrieve(&file_id)
         .await
         .map_err(|_| AppError::NotFound)?;
@@ -201,15 +218,26 @@ pub async fn download_file(
     if let Some(range_header) = req.headers().get("Range") {
         let range_str = range_header.to_str().unwrap_or("");
         if let Some(range_data) = parse_range_header(range_str, file_size) {
-            let partial_content = &file_content[range_data.start as usize..=range_data.end as usize];
+            let partial_content =
+                &file_content[range_data.start as usize..=range_data.end as usize];
 
             return Ok(HttpResponse::PartialContent()
-                .content_type(mime_guess::from_path(&file.1).first_or_octet_stream().to_string())
+                .content_type(
+                    mime_guess::from_path(&file.1)
+                        .first_or_octet_stream()
+                        .to_string(),
+                )
                 .insert_header((
                     "Content-Range",
-                    format!("bytes {}-{}/{}", range_data.start, range_data.end, file_size),
+                    format!(
+                        "bytes {}-{}/{}",
+                        range_data.start, range_data.end, file_size
+                    ),
                 ))
-                .insert_header(("Content-Length", (range_data.end - range_data.start + 1).to_string()))
+                .insert_header((
+                    "Content-Length",
+                    (range_data.end - range_data.start + 1).to_string(),
+                ))
                 .body(partial_content.to_vec()));
         } else {
             return Err(AppError::BadRequest("Invalid Range header".to_string()));
@@ -217,8 +245,15 @@ pub async fn download_file(
     }
 
     Ok(HttpResponse::Ok()
-        .content_type(mime_guess::from_path(&file.1).first_or_octet_stream().to_string())
-        .insert_header(("Content-Disposition", format!("attachment; filename=\"{}\"", file.1)))
+        .content_type(
+            mime_guess::from_path(&file.1)
+                .first_or_octet_stream()
+                .to_string(),
+        )
+        .insert_header((
+            "Content-Disposition",
+            format!("attachment; filename=\"{}\"", file.1),
+        ))
         .insert_header(("Content-Length", file_size.to_string()))
         .body(file_content.to_vec()))
 }
@@ -230,16 +265,15 @@ pub async fn delete_file(
 ) -> AppResult<HttpResponse> {
     let file_id = path.into_inner();
 
-    sqlx::query_as::<_, (String,)>(
-        "SELECT id FROM files WHERE id = $1"
-    )
-    .bind(&file_id)
-    .fetch_optional(&app_state.db)
-    .await
-    .map_err(|e| AppError::Database(e.to_string()))?
-    .ok_or(AppError::NotFound)?;
+    sqlx::query_as::<_, (String,)>("SELECT id FROM files WHERE id = $1")
+        .bind(&file_id)
+        .fetch_optional(&app_state.db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?
+        .ok_or(AppError::NotFound)?;
 
-    app_state.storage
+    app_state
+        .storage
         .delete(&file_id)
         .await
         .map_err(|_| AppError::Internal)?;
@@ -268,7 +302,9 @@ pub async fn delete_file(
         // Invalidate search caches
         let _ = cache.delete("files:search:*").await.ok();
 
-        REDIS_OPERATIONS_TOTAL.with_label_values(&["api_invalidate_on_delete"]).inc();
+        REDIS_OPERATIONS_TOTAL
+            .with_label_values(&["api_invalidate_on_delete"])
+            .inc();
     }
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
@@ -297,11 +333,15 @@ pub async fn list_files(
     if let Some(cache) = &app_state.cache {
         if let Ok(Some(cached)) = cache.get::<serde_json::Value>(&cache_key).await {
             REDIS_CACHE_HITS_TOTAL.inc();
-            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_list_cache_hit"]).inc();
+            REDIS_OPERATIONS_TOTAL
+                .with_label_values(&["api_list_cache_hit"])
+                .inc();
             return Ok(HttpResponse::Ok().json(cached));
         } else {
             REDIS_CACHE_MISSES_TOTAL.inc();
-            REDIS_OPERATIONS_TOTAL.with_label_values(&["api_list_cache_miss"]).inc();
+            REDIS_OPERATIONS_TOTAL
+                .with_label_values(&["api_list_cache_miss"])
+                .inc();
         }
     }
 
@@ -322,14 +362,16 @@ pub async fn list_files(
 
     let file_list: Vec<_> = files
         .iter()
-        .map(|f| serde_json::json!({
-            "id": f.0,
-            "filename": f.1,
-            "size": f.2,
-            "mime_type": f.3,
-            "created_at": f.4,
-            "url": format!("/api/v1/files/{}/download", f.0),
-        }))
+        .map(|f| {
+            serde_json::json!({
+                "id": f.0,
+                "filename": f.1,
+                "size": f.2,
+                "mime_type": f.3,
+                "created_at": f.4,
+                "url": format!("/api/v1/files/{}/download", f.0),
+            })
+        })
         .collect();
 
     let response = serde_json::json!({
@@ -346,7 +388,9 @@ pub async fn list_files(
     if let Some(cache) = &app_state.cache {
         let ttl = app_state.get_ttl_config().file_list();
         let _ = cache.set(&cache_key, &response, Some(ttl)).await;
-        REDIS_OPERATIONS_TOTAL.with_label_values(&["api_list_cache_set"]).inc();
+        REDIS_OPERATIONS_TOTAL
+            .with_label_values(&["api_list_cache_set"])
+            .inc();
     }
 
     Ok(HttpResponse::Ok().json(response))
@@ -411,7 +455,13 @@ fn parse_range_header(range_str: &str, file_size: i64) -> Option<RangeData> {
 fn sanitize_filename(filename: &str) -> String {
     filename
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -461,11 +511,13 @@ pub async fn chunked_upload_init(
     .await
     .map_err(|e| AppError::Database(e.to_string()))?;
 
-    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadInitResponse {
-        session_id,
-        chunk_size,
-        total_chunks,
-    })))
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(
+        ChunkedUploadInitResponse {
+            session_id,
+            chunk_size,
+            total_chunks,
+        },
+    )))
 }
 
 #[derive(Debug, Deserialize)]
@@ -491,19 +543,25 @@ pub async fn chunked_upload_chunk(
 
         match name.as_str() {
             "session_id" => {
-                let data = field.try_next().await
+                let data = field
+                    .try_next()
+                    .await
                     .map_err(|_| AppError::BadRequest("Failed to read session_id".to_string()))?
                     .ok_or_else(|| AppError::BadRequest("Empty session_id".to_string()))?;
                 session_id = String::from_utf8(data.to_vec())
                     .map_err(|_| AppError::BadRequest("Invalid session_id encoding".to_string()))?;
             }
             "chunk_index" => {
-                let data = field.try_next().await
+                let data = field
+                    .try_next()
+                    .await
                     .map_err(|_| AppError::BadRequest("Failed to read chunk_index".to_string()))?
                     .ok_or_else(|| AppError::BadRequest("Empty chunk_index".to_string()))?;
-                let index_str = String::from_utf8(data.to_vec())
-                    .map_err(|_| AppError::BadRequest("Invalid chunk_index encoding".to_string()))?;
-                chunk_index = index_str.parse()
+                let index_str = String::from_utf8(data.to_vec()).map_err(|_| {
+                    AppError::BadRequest("Invalid chunk_index encoding".to_string())
+                })?;
+                chunk_index = index_str
+                    .parse()
                     .map_err(|_| AppError::BadRequest("Invalid chunk_index format".to_string()))?;
             }
             "chunk" => {
@@ -521,47 +579,50 @@ pub async fn chunked_upload_chunk(
 
     // Fetch session from database
     let session = sqlx::query_as::<_, (String, i64, i64, String)>(
-        "SELECT id, total_size, chunk_size, status FROM upload_sessions WHERE id = $1"
+        "SELECT id, total_size, chunk_size, status FROM upload_sessions WHERE id = $1",
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?
-    .ok_or_else(|| AppError::NotFound)?;
+    .ok_or(AppError::NotFound)?;
 
     total_size = session.1;
     let chunk_size = session.2;
     uploaded_size = (chunk_index as i64) * chunk_size;
 
     // Update session: increment uploaded_size
-    let new_uploaded_size = ((chunk_index as i64) + 1) * chunk_size.min(total_size - (chunk_index as i64) * chunk_size);
-    
-    sqlx::query(
-        "UPDATE upload_sessions SET uploaded_size = $1, updated_at = $2 WHERE id = $3"
-    )
-    .bind(new_uploaded_size)
-    .bind(Utc::now().to_rfc3339())
-    .bind(&session_id)
-    .execute(&app_state.db)
-    .await
-    .map_err(|e| AppError::Database(e.to_string()))?;
+    let new_uploaded_size =
+        ((chunk_index as i64) + 1) * chunk_size.min(total_size - (chunk_index as i64) * chunk_size);
+
+    sqlx::query("UPDATE upload_sessions SET uploaded_size = $1, updated_at = $2 WHERE id = $3")
+        .bind(new_uploaded_size)
+        .bind(Utc::now().to_rfc3339())
+        .bind(&session_id)
+        .execute(&app_state.db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
 
     // Update Redis cache if available (optional performance optimization)
     if let Some(redis) = app_state.get_cache() {
         let upload_session_mgr = UploadSessionManager::new(redis.clone());
         // Try to update cache, but don't fail if Redis is unavailable
-        let _ = upload_session_mgr.update_progress(&session_id, new_uploaded_size, chunk_index).await;
+        let _ = upload_session_mgr
+            .update_progress(&session_id, new_uploaded_size, chunk_index)
+            .await;
     }
 
     let progress_percent = (new_uploaded_size as f32 / total_size as f32) * 100.0;
 
-    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadProgressResponse {
-        session_id: session_id.clone(),
-        uploaded_size: new_uploaded_size,
-        total_size,
-        progress_percent,
-        status: "uploading".to_string(),
-    })))
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(
+        ChunkedUploadProgressResponse {
+            session_id: session_id.clone(),
+            uploaded_size: new_uploaded_size,
+            total_size,
+            progress_percent,
+            status: "uploading".to_string(),
+        },
+    )))
 }
 
 #[post("/files/upload/complete/{session_id}")]
@@ -574,13 +635,13 @@ pub async fn chunked_upload_complete(
 
     // Fetch session
     let session = sqlx::query_as::<_, (String, String, i64, i64, String)>(
-        "SELECT id, file_id, total_size, uploaded_size, status FROM upload_sessions WHERE id = $1"
+        "SELECT id, file_id, total_size, uploaded_size, status FROM upload_sessions WHERE id = $1",
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?
-    .ok_or_else(|| AppError::NotFound)?;
+    .ok_or(AppError::NotFound)?;
 
     let (_, file_id, total_size, uploaded_size, _) = session;
 
@@ -593,19 +654,18 @@ pub async fn chunked_upload_complete(
     }
 
     // Mark session as completed
-    sqlx::query(
-        "UPDATE upload_sessions SET status = 'completed', updated_at = $1 WHERE id = $2"
-    )
-    .bind(Utc::now().to_rfc3339())
-    .bind(&session_id)
-    .execute(&app_state.db)
-    .await
-    .map_err(|e| AppError::Database(e.to_string()))?;
+    sqlx::query("UPDATE upload_sessions SET status = 'completed', updated_at = $1 WHERE id = $2")
+        .bind(Utc::now().to_rfc3339())
+        .bind(&session_id)
+        .execute(&app_state.db)
+        .await
+        .map_err(|e| AppError::Database(e.to_string()))?;
 
     // Create file record if it doesn't exist (for chunked upload)
     let file_name = format!("chunked_upload_{}", file_id);
     let mime_type = "application/octet-stream";
-    let checksum = req.get("checksum")
+    let checksum = req
+        .get("checksum")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown")
         .to_string();
@@ -627,18 +687,22 @@ pub async fn chunked_upload_complete(
 
     // Mark session as completed in Redis cache if available
     if let Some(redis) = app_state.get_cache() {
-       let upload_session_mgr = UploadSessionManager::new(redis.clone());
-       let _ = upload_session_mgr.mark_completed(&session_id, &file_id).await;
+        let upload_session_mgr = UploadSessionManager::new(redis.clone());
+        let _ = upload_session_mgr
+            .mark_completed(&session_id, &file_id)
+            .await;
     }
 
-    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadCompleteResponse {
-       file_id: file_id.clone(),
-       filename: file_name,
-       size: total_size,
-       mime_type: mime_type.to_string(),
-       checksum,
-       created_at: Utc::now().to_rfc3339(),
-    })))
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(
+        ChunkedUploadCompleteResponse {
+            file_id: file_id.clone(),
+            filename: file_name,
+            size: total_size,
+            mime_type: mime_type.to_string(),
+            checksum,
+            created_at: Utc::now().to_rfc3339(),
+        },
+    )))
 }
 
 #[get("/files/upload/progress/{session_id}")]
@@ -652,47 +716,51 @@ pub async fn chunked_upload_progress(
     if let Some(redis) = app_state.get_cache() {
         let upload_session_mgr = UploadSessionManager::new(redis.clone());
         if let Ok(Some(cached_session)) = upload_session_mgr.get_session(&session_id).await {
-            return Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadProgressResponse {
-                session_id,
-                uploaded_size: cached_session.uploaded_size,
-                total_size: cached_session.total_size,
-                progress_percent: cached_session.progress_percent(),
-                status: cached_session.status,
-            })));
+            return Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(
+                ChunkedUploadProgressResponse {
+                    session_id,
+                    uploaded_size: cached_session.uploaded_size,
+                    total_size: cached_session.total_size,
+                    progress_percent: cached_session.progress_percent(),
+                    status: cached_session.status,
+                },
+            )));
         }
     }
 
     // Fallback to SQLite
     let session = sqlx::query_as::<_, (i64, i64, String)>(
-        "SELECT total_size, uploaded_size, status FROM upload_sessions WHERE id = $1"
+        "SELECT total_size, uploaded_size, status FROM upload_sessions WHERE id = $1",
     )
     .bind(&session_id)
     .fetch_optional(&app_state.db)
     .await
     .map_err(|e| AppError::Database(e.to_string()))?
-    .ok_or_else(|| AppError::NotFound)?;
+    .ok_or(AppError::NotFound)?;
 
     let (total_size, uploaded_size, status) = session;
     let progress_percent = (uploaded_size as f32 / total_size as f32) * 100.0;
 
-    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(ChunkedUploadProgressResponse {
-        session_id,
-        uploaded_size,
-        total_size,
-        progress_percent,
-        status,
-    })))
+    Ok(HttpResponse::Ok().json(crate::models::ApiResponse::success(
+        ChunkedUploadProgressResponse {
+            session_id,
+            uploaded_size,
+            total_size,
+            progress_percent,
+            status,
+        },
+    )))
 }
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
-    cfg.service(file_stats)        // /files/stats (specific path, register early)
-        .service(chunked_upload_init)      // /files/upload/init (longer path)
-        .service(chunked_upload_chunk)     // /files/upload/chunk
-        .service(chunked_upload_complete)  // /files/upload/complete/{session_id}
-        .service(chunked_upload_progress)  // /files/upload/progress/{session_id}
-        .service(upload_file)              // /files/upload (general multipart)
-        .service(get_file_metadata)        // /files/{id}
-        .service(download_file)            // /files/{id}/download
-        .service(delete_file)              // /files/{id}
-        .service(list_files);              // /files (generic list)
+    cfg.service(file_stats) // /files/stats (specific path, register early)
+        .service(chunked_upload_init) // /files/upload/init (longer path)
+        .service(chunked_upload_chunk) // /files/upload/chunk
+        .service(chunked_upload_complete) // /files/upload/complete/{session_id}
+        .service(chunked_upload_progress) // /files/upload/progress/{session_id}
+        .service(upload_file) // /files/upload (general multipart)
+        .service(get_file_metadata) // /files/{id}
+        .service(download_file) // /files/{id}/download
+        .service(delete_file) // /files/{id}
+        .service(list_files); // /files (generic list)
 }

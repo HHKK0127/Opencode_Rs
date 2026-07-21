@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::{FileMetadata, StorageBackend, StorageError, StorageResult, StorageUrl};
 use async_trait::async_trait;
 use aws_sdk_s3::{config::Region, Client};
@@ -40,11 +41,7 @@ impl S3StorageBackend {
 
 #[async_trait]
 impl StorageBackend for S3StorageBackend {
-    async fn store(
-        &self,
-        data: Bytes,
-        metadata: FileMetadata,
-    ) -> StorageResult<StorageUrl> {
+    async fn store(&self, data: Bytes, metadata: FileMetadata) -> StorageResult<StorageUrl> {
         let key = self.get_object_key(&metadata.filename);
 
         self.client
@@ -133,7 +130,9 @@ impl StorageBackend for S3StorageBackend {
             .bucket(&self.bucket)
             .send()
             .await
-            .map_err(|e| StorageError::HealthCheckFailed(format!("S3 health check failed: {}", e)))?;
+            .map_err(|e| {
+                StorageError::HealthCheckFailed(format!("S3 health check failed: {}", e))
+            })?;
 
         Ok(())
     }

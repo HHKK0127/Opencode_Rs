@@ -1,7 +1,7 @@
-use actix_web::{HttpResponse, web};
-use tokio::sync::broadcast;
+use actix_web::{web, HttpResponse};
 use serde::Serialize;
 use std::sync::Arc;
+use tokio::sync::broadcast;
 
 pub type EventBus = Arc<broadcast::Sender<V2Event>>;
 
@@ -26,9 +26,7 @@ pub fn emit_event(bus: &EventBus, event_type: &str, data: serde_json::Value) {
     let _ = bus.send(event);
 }
 
-pub async fn subscribe_events(
-    bus: web::Data<EventBus>,
-) -> HttpResponse {
+pub async fn subscribe_events(bus: web::Data<EventBus>) -> HttpResponse {
     let rx = bus.subscribe();
     let stream = futures::stream::unfold(rx, |mut rx| async {
         loop {

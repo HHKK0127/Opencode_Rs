@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::StorageResult;
 use bytes::Bytes;
 use std::collections::HashMap;
@@ -46,10 +47,7 @@ impl UploadProgress {
 }
 
 pub trait MultipartStorageBackend: Send + Sync {
-    async fn init_multipart_upload(
-        &self,
-        init: MultipartUploadInit,
-    ) -> StorageResult<String>;
+    async fn init_multipart_upload(&self, init: MultipartUploadInit) -> StorageResult<String>;
 
     async fn upload_part(
         &self,

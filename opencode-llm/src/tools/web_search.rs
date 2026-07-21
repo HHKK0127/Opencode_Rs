@@ -37,8 +37,12 @@ pub struct WebSearchTool;
 
 #[async_trait::async_trait]
 impl super::ToolRuntime for WebSearchTool {
-    fn name(&self) -> &str { NAME }
-    fn spec(&self) -> ToolSpec { spec() }
+    fn name(&self) -> &str {
+        NAME
+    }
+    fn spec(&self) -> ToolSpec {
+        spec()
+    }
 
     async fn execute(&self, args: Value, _ctx: &ToolContext) -> Result<String, ToolError> {
         let query = args
@@ -70,9 +74,10 @@ impl super::ToolRuntime for WebSearchTool {
             req = req.header("Authorization", format!("Bearer {key}"));
         }
 
-        let response = req.send().await.map_err(|e| {
-            ToolError::Other(format!("search request failed: {e}"))
-        })?;
+        let response = req
+            .send()
+            .await
+            .map_err(|e| ToolError::Other(format!("search request failed: {e}")))?;
 
         if !response.status().is_success() {
             // Fallback: return a summary message.
@@ -84,9 +89,10 @@ impl super::ToolRuntime for WebSearchTool {
             ));
         }
 
-        let body = response.text().await.map_err(|e| {
-            ToolError::Other(format!("read body error: {e}"))
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| ToolError::Other(format!("read body error: {e}")))?;
 
         // Extract text content from HTML response.
         let text = extract_text(&body, max_results);
@@ -106,7 +112,9 @@ fn extract_text(html: &str, max_results: usize) -> String {
     let mut i = 0;
     while i < chars.len() {
         match chars[i] {
-            '<' if i + 6 < chars.len() && chars[i..i+7].iter().collect::<String>().to_lowercase() == "<script" => {
+            '<' if i + 6 < chars.len()
+                && chars[i..i + 7].iter().collect::<String>().to_lowercase() == "<script" =>
+            {
                 in_script = true;
                 in_tag = true;
                 if !current.trim().is_empty() {
@@ -114,7 +122,9 @@ fn extract_text(html: &str, max_results: usize) -> String {
                     current.clear();
                 }
             }
-            '<' if i + 5 < chars.len() && chars[i..i+6].iter().collect::<String>().to_lowercase() == "<style" => {
+            '<' if i + 5 < chars.len()
+                && chars[i..i + 6].iter().collect::<String>().to_lowercase() == "<style" =>
+            {
                 in_style = true;
                 in_tag = true;
                 if !current.trim().is_empty() {
@@ -136,20 +146,23 @@ fn extract_text(html: &str, max_results: usize) -> String {
             '>' => {
                 in_tag = false;
                 if in_script {
-                    if i > 0 && chars[i-1] == '/' {
+                    if i > 0 && chars[i - 1] == '/' {
                         // self-closing
                     }
                     // Check for </script>
-                    if i + 8 < chars.len() && chars[i..i+9].iter().collect::<String>().to_lowercase() == "</script>" {
+                    if i + 8 < chars.len()
+                        && chars[i..i + 9].iter().collect::<String>().to_lowercase() == "</script>"
+                    {
                         in_script = false;
                         i += 8;
                     }
                 }
-                if in_style {
-                    if i + 6 < chars.len() && chars[i..i+7].iter().collect::<String>().to_lowercase() == "</style>" {
-                        in_style = false;
-                        i += 6;
-                    }
+                if in_style
+                    && i + 6 < chars.len()
+                    && chars[i..i + 7].iter().collect::<String>().to_lowercase() == "</style>"
+                {
+                    in_style = false;
+                    i += 6;
                 }
             }
             _ => {
@@ -171,15 +184,19 @@ fn extract_text(html: &str, max_results: usize) -> String {
     // Deduplicate and limit.
     let mut seen = std::collections::BTreeSet::new();
     let mut output = String::new();
-    output.push_str(&format!("[web_search] Results for query\n\n"));
+    output.push_str("[web_search] Results for query\n\n");
     let mut count = 0;
     for line in results {
         let clean = line.trim();
-        if clean.is_empty() || clean.len() < 10 { continue; }
+        if clean.is_empty() || clean.len() < 10 {
+            continue;
+        }
         if seen.insert(clean.to_lowercase()) {
             output.push_str(&format!("  • {clean}\n"));
             count += 1;
-            if count >= max_results { break; }
+            if count >= max_results {
+                break;
+            }
         }
     }
 

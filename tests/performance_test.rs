@@ -1,8 +1,17 @@
+#![allow(
+    dead_code,
+    unused_imports,
+    unused_variables,
+    unused_mut,
+    unused_assignments,
+    clippy::all
+)]
+
 use actix_web::test;
 use reqwest::Client;
 use serde_json::Value;
-use std::time::Instant;
 use std::time::Duration;
+use std::time::Instant;
 
 #[actix_web::test]
 async fn test_single_file_upload_performance() {
@@ -29,19 +38,21 @@ async fn test_single_file_upload_performance() {
     let response = client
         .post("http://127.0.0.1:8080/api/v1/files/upload")
         .header("Authorization", format!("Bearer {}", token))
-        .multipart(
-            reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(file_content.to_vec())
-                    .file_name("perf_test.txt"))
-        )
+        .multipart(reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(file_content.to_vec()).file_name("perf_test.txt"),
+        ))
         .send()
         .await;
 
     let elapsed = start.elapsed();
 
     assert!(response.is_ok());
-    assert!(elapsed < Duration::from_millis(500),
-            "Single upload took {:?}, expected <500ms", elapsed);
+    assert!(
+        elapsed < Duration::from_millis(500),
+        "Single upload took {:?}, expected <500ms",
+        elapsed
+    );
 
     eprintln!("✓ Single upload: {:?}", elapsed);
 }
@@ -73,11 +84,10 @@ async fn test_bulk_file_upload_throughput() {
         let _response = client
             .post("http://127.0.0.1:8080/api/v1/files/upload")
             .header("Authorization", format!("Bearer {}", token))
-            .multipart(
-                reqwest::multipart::Form::new()
-                    .part("file", reqwest::multipart::Part::bytes(file_content.to_vec())
-                        .file_name(filename))
-            )
+            .multipart(reqwest::multipart::Form::new().part(
+                "file",
+                reqwest::multipart::Part::bytes(file_content.to_vec()).file_name(filename),
+            ))
             .send()
             .await;
     }
@@ -85,8 +95,15 @@ async fn test_bulk_file_upload_throughput() {
     let elapsed = start.elapsed();
     let throughput = 20.0 / elapsed.as_secs_f64();
 
-    eprintln!("✓ Bulk upload: 20 files in {:?} ({:.2} uploads/sec)", elapsed, throughput);
-    assert!(throughput > 5.0, "Expected >5 uploads/sec, got {:.2}", throughput);
+    eprintln!(
+        "✓ Bulk upload: 20 files in {:?} ({:.2} uploads/sec)",
+        elapsed, throughput
+    );
+    assert!(
+        throughput > 5.0,
+        "Expected >5 uploads/sec, got {:.2}",
+        throughput
+    );
 }
 
 #[actix_web::test]
@@ -115,11 +132,10 @@ async fn test_search_performance_with_filters() {
         let _response = client
             .post("http://127.0.0.1:8080/api/v1/files/upload")
             .header("Authorization", format!("Bearer {}", token))
-            .multipart(
-                reqwest::multipart::Form::new()
-                    .part("file", reqwest::multipart::Part::bytes(content)
-                        .file_name(filename))
-            )
+            .multipart(reqwest::multipart::Form::new().part(
+                "file",
+                reqwest::multipart::Part::bytes(content).file_name(filename),
+            ))
             .send()
             .await;
     }
@@ -136,8 +152,11 @@ async fn test_search_performance_with_filters() {
     let elapsed = start.elapsed();
 
     assert_eq!(search_resp.status(), 200);
-    assert!(elapsed < Duration::from_millis(150),
-            "Search took {:?}, expected <150ms", elapsed);
+    assert!(
+        elapsed < Duration::from_millis(150),
+        "Search took {:?}, expected <150ms",
+        elapsed
+    );
 
     eprintln!("✓ Search with filters: {:?}", elapsed);
 }
@@ -165,11 +184,10 @@ async fn test_range_request_performance() {
     let upload_resp = client
         .post("http://127.0.0.1:8080/api/v1/files/upload")
         .header("Authorization", format!("Bearer {}", token))
-        .multipart(
-            reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(file_content.clone())
-                    .file_name("range_perf_test.bin"))
-        )
+        .multipart(reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(file_content.clone()).file_name("range_perf_test.bin"),
+        ))
         .send()
         .await
         .unwrap();
@@ -180,7 +198,10 @@ async fn test_range_request_performance() {
     // Test range request performance
     let start = Instant::now();
     let download_resp = client
-        .get(&format!("http://127.0.0.1:8080/api/v1/files/{}/download", file_id))
+        .get(&format!(
+            "http://127.0.0.1:8080/api/v1/files/{}/download",
+            file_id
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .header("Range", "bytes=0-9999")
         .send()
@@ -190,8 +211,11 @@ async fn test_range_request_performance() {
     let elapsed = start.elapsed();
 
     assert_eq!(download_resp.status(), 206);
-    assert!(elapsed < Duration::from_millis(100),
-            "Range request took {:?}, expected <100ms", elapsed);
+    assert!(
+        elapsed < Duration::from_millis(100),
+        "Range request took {:?}, expected <100ms",
+        elapsed
+    );
 
     eprintln!("✓ Range request: {:?}", elapsed);
 }
@@ -229,7 +253,11 @@ async fn test_chunked_upload_performance() {
         .unwrap();
 
     let init_elapsed = init_start.elapsed();
-    assert!(init_elapsed < Duration::from_millis(100), "Init took too long: {:?}", init_elapsed);
+    assert!(
+        init_elapsed < Duration::from_millis(100),
+        "Init took too long: {:?}",
+        init_elapsed
+    );
 
     let init_body: Value = init_resp.json().await.unwrap();
     let session_id = init_body["session_id"].as_str().unwrap().to_string();
@@ -246,25 +274,35 @@ async fn test_chunked_upload_performance() {
                 reqwest::multipart::Form::new()
                     .text("session_id", session_id.clone())
                     .text("chunk_index", i.to_string())
-                    .part("chunk", reqwest::multipart::Part::bytes(chunk_data.clone()))
+                    .part("chunk", reqwest::multipart::Part::bytes(chunk_data.clone())),
             )
             .send()
             .await;
     }
 
     let chunk_elapsed = chunk_start.elapsed();
-    eprintln!("✓ Chunked upload: init {:?}, 2 chunks {:?}", init_elapsed, chunk_elapsed);
+    eprintln!(
+        "✓ Chunked upload: init {:?}, 2 chunks {:?}",
+        init_elapsed, chunk_elapsed
+    );
 
     // Complete upload
     let complete_start = Instant::now();
     let _complete_resp = client
-        .post(&format!("http://127.0.0.1:8080/api/v1/files/upload/complete/{}", session_id))
+        .post(&format!(
+            "http://127.0.0.1:8080/api/v1/files/upload/complete/{}",
+            session_id
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await;
 
     let complete_elapsed = complete_start.elapsed();
-    assert!(complete_elapsed < Duration::from_millis(200), "Complete took too long: {:?}", complete_elapsed);
+    assert!(
+        complete_elapsed < Duration::from_millis(200),
+        "Complete took too long: {:?}",
+        complete_elapsed
+    );
 }
 
 #[actix_web::test]
@@ -310,7 +348,7 @@ async fn test_progress_tracking_performance() {
             reqwest::multipart::Form::new()
                 .text("session_id", session_id.clone())
                 .text("chunk_index", "0")
-                .part("chunk", reqwest::multipart::Part::bytes(chunk_data))
+                .part("chunk", reqwest::multipart::Part::bytes(chunk_data)),
         )
         .send()
         .await;
@@ -320,7 +358,10 @@ async fn test_progress_tracking_performance() {
     for _ in 0..10 {
         let start = Instant::now();
         let _progress_resp = client
-            .get(&format!("http://127.0.0.1:8080/api/v1/files/upload/progress/{}", session_id))
+            .get(&format!(
+                "http://127.0.0.1:8080/api/v1/files/upload/progress/{}",
+                session_id
+            ))
             .header("Authorization", format!("Bearer {}", token))
             .send()
             .await;
@@ -328,8 +369,11 @@ async fn test_progress_tracking_performance() {
     }
 
     let avg_time = total_time / 10;
-    assert!(avg_time < Duration::from_millis(10),
-            "Progress query avg {:?}, expected <10ms", avg_time);
+    assert!(
+        avg_time < Duration::from_millis(10),
+        "Progress query avg {:?}, expected <10ms",
+        avg_time
+    );
 
     eprintln!("✓ Progress tracking: avg {:?} (10 queries)", avg_time);
 }
@@ -358,11 +402,10 @@ async fn test_file_listing_pagination_performance() {
         let _response = client
             .post("http://127.0.0.1:8080/api/v1/files/upload")
             .header("Authorization", format!("Bearer {}", token))
-            .multipart(
-                reqwest::multipart::Form::new()
-                    .part("file", reqwest::multipart::Part::bytes(b"test".to_vec())
-                        .file_name(filename))
-            )
+            .multipart(reqwest::multipart::Form::new().part(
+                "file",
+                reqwest::multipart::Part::bytes(b"test".to_vec()).file_name(filename),
+            ))
             .send()
             .await;
     }
@@ -379,8 +422,11 @@ async fn test_file_listing_pagination_performance() {
     let elapsed = start.elapsed();
 
     assert_eq!(list_resp.status(), 200);
-    assert!(elapsed < Duration::from_millis(200),
-            "Listing took {:?}, expected <200ms", elapsed);
+    assert!(
+        elapsed < Duration::from_millis(200),
+        "Listing took {:?}, expected <200ms",
+        elapsed
+    );
 
     eprintln!("✓ Pagination listing: {:?}", elapsed);
 }

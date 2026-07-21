@@ -46,9 +46,10 @@ impl ResolvedCredential {
         match self {
             Self::ApiKey(key) => ("x-api-key", key.clone()),
             Self::BearerToken(token) => ("Authorization", format!("Bearer {token}")),
-            Self::OAuth(token) => {
-                ("Authorization", format!("{} {}", token.token_type, token.access_token))
-            }
+            Self::OAuth(token) => (
+                "Authorization",
+                format!("{} {}", token.token_type, token.access_token),
+            ),
         }
     }
 }
@@ -106,12 +107,12 @@ impl OAuthResolver {
     /// This may block on HTTP requests or subprocess invocations.
     pub async fn resolve(&self) -> LlmResult<OAuthToken> {
         match &self.provider {
-            OAuthProvider::Generic { auth_url, token_url, client_id } => {
-                self.resolve_generic(auth_url, token_url, client_id).await
-            }
-            OAuthProvider::GcpIam { audience } => {
-                self.resolve_gcp_iam(audience).await
-            }
+            OAuthProvider::Generic {
+                auth_url,
+                token_url,
+                client_id,
+            } => self.resolve_generic(auth_url, token_url, client_id).await,
+            OAuthProvider::GcpIam { audience } => self.resolve_gcp_iam(audience).await,
             OAuthProvider::GithubActions { token_url } => {
                 self.resolve_github_actions(token_url).await
             }
@@ -126,9 +127,7 @@ impl OAuthResolver {
         client_id: &str,
     ) -> LlmResult<OAuthToken> {
         // 1. Start device authorization.
-        let device_code = self
-            .request_device_code(token_url, client_id)
-            .await?;
+        let device_code = self.request_device_code(token_url, client_id).await?;
 
         // 2. Prompt user to visit URL.
         eprintln!(
@@ -138,7 +137,8 @@ impl OAuthResolver {
         );
 
         // 3. Poll for token.
-        self.poll_token(token_url, client_id, &device_code.device_code).await
+        self.poll_token(token_url, client_id, &device_code.device_code)
+            .await
     }
 
     /// Request a device code from the authorization endpoint.
@@ -168,10 +168,9 @@ impl OAuthResolver {
             )));
         }
 
-        let body: BTreeMap<String, serde_json::Value> = resp
-            .json()
-            .await
-            .map_err(|e| LlmError::ApiError(format!("failed to parse device auth response: {e}")))?;
+        let body: BTreeMap<String, serde_json::Value> = resp.json().await.map_err(|e| {
+            LlmError::ApiError(format!("failed to parse device auth response: {e}"))
+        })?;
 
         Ok(DeviceCodeResponse {
             device_code: body
@@ -302,10 +301,9 @@ impl OAuthResolver {
             let body: BTreeMap<String, serde_json::Value> = resp.json().await.map_err(|e| {
                 LlmError::ApiError(format!("failed to parse OIDC token response: {e}"))
             })?;
-            let request_token = body
-                .get("value")
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| LlmError::ApiError("OIDC token response missing `value`".to_string()))?;
+            let request_token = body.get("value").and_then(|v| v.as_str()).ok_or_else(|| {
+                LlmError::ApiError("OIDC token response missing `value`".to_string())
+            })?;
             return self.exchange_github_oidc(token_url, request_token).await;
         }
 
@@ -325,7 +323,10 @@ impl OAuthResolver {
         let resp = client
             .post(token_url)
             .header("Authorization", format!("Bearer {request_token}"))
-            .form(&[("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")])
+            .form(&[(
+                "grant_type",
+                "urn:ietf:params:oauth:grant-type:token-exchange",
+            )])
             .send()
             .await
             .map_err(|e| LlmError::Network(format!("token exchange failed: {e}")))?;
@@ -362,6 +363,7 @@ struct DeviceCodeResponse {
     device_code: String,
     user_code: String,
     verification_uri: String,
+    #[allow(dead_code)]
     interval: u64,
 }
 
@@ -397,12 +399,14 @@ async fn get_gce_identity_token(audience: &str) -> LlmResult<String> {
 /// Fall back to `gcloud auth print-identity-token`.
 fn get_gcloud_identity_token(audience: &str) -> LlmResult<String> {
     let output = std::process::Command::new("gcloud")
-        .args(["auth", "print-identity-token", &format!("--audiences={audience}")])
+        .args([
+            "auth",
+            "print-identity-token",
+            &format!("--audiences={audience}"),
+        ])
         .output()
         .map_err(|e| {
-            LlmError::Config(format!(
-                "failed to run gcloud CLI (is it installed?): {e}"
-            ))
+            LlmError::Config(format!("failed to run gcloud CLI (is it installed?): {e}"))
         })?;
 
     if !output.status.success() {
@@ -427,14 +431,15 @@ pub async fn resolve_credentials(
         return Ok(match auth {
             crate::auth::AuthSource::ApiKey(key) => ResolvedCredential::ApiKey(key),
             crate::auth::AuthSource::BearerToken(token)
-            | crate::auth::AuthSource::ApiKeyAndBearer { bearer_token: token, .. } => {
-                ResolvedCredential::BearerToken(token)
-            }
-            crate::auth::AuthSource::OpenAiBearer(token) => {
-                ResolvedCredential::BearerToken(token)
-            }
+            | crate::auth::AuthSource::ApiKeyAndBearer {
+                bearer_token: token,
+                ..
+            } => ResolvedCredential::BearerToken(token),
+            crate::auth::AuthSource::OpenAiBearer(token) => ResolvedCredential::BearerToken(token),
             crate::auth::AuthSource::None => {
-                return Err(LlmError::MissingCredentials("No credentials configured".to_string()));
+                return Err(LlmError::MissingCredentials(
+                    "No credentials configured".to_string(),
+                ));
             }
         });
     }
@@ -512,9 +517,15 @@ mod tests {
         assert!(result.is_err(), "expected error when no credentials set");
 
         // Restore env vars.
-        if let Some(v) = saved_anthropic { std::env::set_var("ANTHROPIC_API_KEY", v); }
-        if let Some(v) = saved_openai { std::env::set_var("OPENAI_API_KEY", v); }
-        if let Some(v) = saved_auth_token { std::env::set_var("ANTHROPIC_AUTH_TOKEN", v); }
+        if let Some(v) = saved_anthropic {
+            std::env::set_var("ANTHROPIC_API_KEY", v);
+        }
+        if let Some(v) = saved_openai {
+            std::env::set_var("OPENAI_API_KEY", v);
+        }
+        if let Some(v) = saved_auth_token {
+            std::env::set_var("ANTHROPIC_AUTH_TOKEN", v);
+        }
     }
 
     #[test]
@@ -535,8 +546,12 @@ mod tests {
             .unwrap()
             .block_on(resolve_credentials(None));
         std::env::remove_var("ANTHROPIC_AUTH_TOKEN");
-        if let Some(v) = saved_anthropic { std::env::set_var("ANTHROPIC_API_KEY", v); }
-        if let Some(v) = saved_openai { std::env::set_var("OPENAI_API_KEY", v); }
+        if let Some(v) = saved_anthropic {
+            std::env::set_var("ANTHROPIC_API_KEY", v);
+        }
+        if let Some(v) = saved_openai {
+            std::env::set_var("OPENAI_API_KEY", v);
+        }
 
         assert!(result.is_ok());
         let cred = result.unwrap();

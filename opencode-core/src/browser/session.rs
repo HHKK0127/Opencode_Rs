@@ -12,11 +12,14 @@ pub struct TabHandle {
 
 impl TabHandle {
     pub async fn is_alive(&self) -> bool {
-        self.page.execute(
-            chromiumoxide::cdp::browser_protocol::target::GetTargetInfoParams {
-                target_id: Some(self.page.target_id().clone()),
-            },
-        ).await.is_ok()
+        self.page
+            .execute(
+                chromiumoxide::cdp::browser_protocol::target::GetTargetInfoParams {
+                    target_id: Some(self.page.target_id().clone()),
+                },
+            )
+            .await
+            .is_ok()
     }
 }
 

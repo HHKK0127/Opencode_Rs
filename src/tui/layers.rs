@@ -8,9 +8,9 @@
 //! This module only provides the `RootComponent` placeholder for the
 //! compositor root layer.
 
-use ratatui::Frame;
-use ratatui::layout::Rect;
 use crossterm::event::KeyEvent;
+use ratatui::layout::Rect;
+use ratatui::Frame;
 
 use crate::tui::component::{Component, ComponentKind, HandleResult};
 
@@ -22,6 +22,12 @@ use crate::tui::component::{Component, ComponentKind, HandleResult};
 /// The existing App struct handles all events/render natively;
 /// this just satisfies the Compositor stack.
 pub struct RootComponent;
+
+impl Default for RootComponent {
+    fn default() -> Self {
+        Self
+    }
+}
 
 impl RootComponent {
     pub fn new() -> Self {

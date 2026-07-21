@@ -377,11 +377,7 @@ impl TeamRegistry {
     /// List enabled teams.
     pub async fn list_enabled(&self) -> Vec<Team> {
         let teams = self.teams.lock().await;
-        teams
-            .values()
-            .filter(|t| t.enabled)
-            .cloned()
-            .collect()
+        teams.values().filter(|t| t.enabled).cloned().collect()
     }
 
     /// Delete a team.
@@ -519,7 +515,11 @@ pub struct CronJob {
 
 impl CronJob {
     /// Create a new cron job.
-    pub fn new(name: impl Into<String>, description: impl Into<String>, schedule: CronSchedule) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        schedule: CronSchedule,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -591,8 +591,7 @@ impl CronRegistry {
     /// List active cron jobs (that should be running on schedule).
     pub async fn list_active(&self) -> Vec<CronJob> {
         let jobs = self.jobs.lock().await;
-        jobs
-            .values()
+        jobs.values()
             .filter(|j| j.status == JobStatus::Active)
             .cloned()
             .collect()
@@ -746,7 +745,9 @@ mod tests {
     async fn task_list_by_status() {
         let reg = TaskRegistry::new();
         reg.register(Task::new("t1", "Task 1")).await.unwrap();
-        reg.update_status("t1", TaskStatus::Completed).await.unwrap();
+        reg.update_status("t1", TaskStatus::Completed)
+            .await
+            .unwrap();
         reg.register(Task::new("t2", "Task 2")).await.unwrap();
         let pending = reg.list_by_status(TaskStatus::Pending).await;
         assert_eq!(pending.len(), 1);
@@ -756,12 +757,9 @@ mod tests {
     #[tokio::test]
     async fn task_ready_tasks_respects_dependencies() {
         let reg = TaskRegistry::new();
-        reg.register(
-            Task::new("t1", "Parent")
-                .with_priority(1),
-        )
-        .await
-        .unwrap();
+        reg.register(Task::new("t1", "Parent").with_priority(1))
+            .await
+            .unwrap();
         reg.register(
             Task::new("t2", "Child")
                 .with_dependency("t1")
@@ -775,7 +773,9 @@ mod tests {
         assert_eq!(ready[0].id, "t1");
 
         // Complete t1 → t2 becomes ready.
-        reg.update_status("t1", TaskStatus::Completed).await.unwrap();
+        reg.update_status("t1", TaskStatus::Completed)
+            .await
+            .unwrap();
         let ready = reg.ready_tasks().await;
         assert_eq!(ready.len(), 1);
         assert_eq!(ready[0].id, "t2");
@@ -854,8 +854,12 @@ mod tests {
     #[tokio::test]
     async fn team_list_enabled() {
         let reg = TeamRegistry::new();
-        reg.register(Team::new("enabled-team", "Active")).await.unwrap();
-        reg.register(Team::new("disabled-team", "Inactive")).await.unwrap();
+        reg.register(Team::new("enabled-team", "Active"))
+            .await
+            .unwrap();
+        reg.register(Team::new("disabled-team", "Inactive"))
+            .await
+            .unwrap();
         reg.set_enabled("disabled-team", false).await.unwrap();
         let enabled = reg.list_enabled().await;
         assert_eq!(enabled.len(), 1);

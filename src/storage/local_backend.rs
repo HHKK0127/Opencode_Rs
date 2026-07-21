@@ -22,11 +22,7 @@ impl LocalStorageBackend {
 
 #[async_trait]
 impl StorageBackend for LocalStorageBackend {
-    async fn store(
-        &self,
-        data: Bytes,
-        metadata: FileMetadata,
-    ) -> StorageResult<StorageUrl> {
+    async fn store(&self, data: Bytes, metadata: FileMetadata) -> StorageResult<StorageUrl> {
         let file_path = self.get_file_path(&metadata.filename);
 
         // Create parent directories if they don't exist
@@ -76,9 +72,9 @@ impl StorageBackend for LocalStorageBackend {
 
     async fn health_check(&self) -> StorageResult<()> {
         // Check if base path is accessible
-        fs::metadata(&self.base_path)
-            .await
-            .map_err(|e| StorageError::HealthCheckFailed(format!("Local storage check failed: {}", e)))?;
+        fs::metadata(&self.base_path).await.map_err(|e| {
+            StorageError::HealthCheckFailed(format!("Local storage check failed: {}", e))
+        })?;
         Ok(())
     }
 }

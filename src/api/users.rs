@@ -1,8 +1,8 @@
 use actix_web::{get, web, HttpResponse};
 use serde::Serialize;
 
-use crate::error::AppResult;
 use crate::app_state::AppState;
+use crate::error::AppResult;
 
 #[derive(Debug, Serialize, Clone, sqlx::FromRow)]
 pub struct UserResponse {
@@ -19,7 +19,7 @@ pub async fn list_users(app_state: web::Data<AppState>) -> AppResult<HttpRespons
         FROM users
         ORDER BY created_at DESC
         LIMIT 100
-        "#
+        "#,
     )
     .fetch_all(&app_state.db)
     .await
@@ -38,13 +38,13 @@ pub async fn get_user(
         SELECT id, username, created_at::text
         FROM users
         WHERE id = $1
-        "#
+        "#,
     )
     .bind(id.as_str())
     .fetch_optional(&app_state.db)
     .await
     .map_err(|e| crate::error::AppError::Database(e.to_string()))?
-    .ok_or_else(|| crate::error::AppError::NotFound)?;
+    .ok_or(crate::error::AppError::NotFound)?;
 
     Ok(HttpResponse::Ok().json(user))
 }

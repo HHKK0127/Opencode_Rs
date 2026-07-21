@@ -121,8 +121,7 @@ impl Event {
     }
 
     pub fn user_logged_in(user_id: String) -> Self {
-        let data = EventData::new("login".to_string())
-            .with_user_id(user_id);
+        let data = EventData::new("login".to_string()).with_user_id(user_id);
 
         Self::new(EventType::UserLoggedIn, data, "auth-service".to_string())
     }

@@ -33,13 +33,18 @@ impl NotificationChannel {
     }
 
     /// Broadcast event to all subscribers
-    pub async fn broadcast(&self, event: Event, subscriber_id: Option<String>) -> Result<(), String> {
+    pub async fn broadcast(
+        &self,
+        event: Event,
+        subscriber_id: Option<String>,
+    ) -> Result<(), String> {
         let message = ChannelMessage {
             event,
             subscriber_id,
         };
 
-        self.sender.send(message)
+        self.sender
+            .send(message)
             .map_err(|_| "Failed to broadcast message".to_string())?;
 
         Ok(())
@@ -72,7 +77,8 @@ impl<T: Clone + Send + Sync + 'static> TypedEventChannel<T> {
     }
 
     pub fn broadcast(&self, event: T) -> Result<usize, String> {
-        self.sender.send(event)
+        self.sender
+            .send(event)
             .map_err(|_| "Failed to broadcast".to_string())
     }
 
@@ -85,6 +91,7 @@ impl<T: Clone + Send + Sync + 'static> TypedEventChannel<T> {
 mod tests {
     use super::*;
     use crate::notifications::event::{Event, EventType};
+    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_notification_channel_creation() {

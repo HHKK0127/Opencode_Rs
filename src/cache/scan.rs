@@ -1,7 +1,8 @@
+#![allow(dead_code)]
 //! Redis SCANコマンド実装
 
-use redis::{AsyncCommands, RedisError};
 use redis::aio::MultiplexedConnection;
+use redis::{AsyncCommands, RedisError};
 use tracing::info;
 
 pub struct RedisScanner {
@@ -58,12 +59,9 @@ impl RedisScanner {
     }
 
     /// パターンにマッチするキーを削除
-    pub async fn delete_by_pattern(
-        &mut self,
-        pattern: &str,
-    ) -> Result<usize, RedisError> {
+    pub async fn delete_by_pattern(&mut self, pattern: &str) -> Result<usize, RedisError> {
         let keys = self.scan_keys(pattern, 100).await?;
-        
+
         if keys.is_empty() {
             info!("No keys found for pattern: {}", pattern);
             return Ok(0);
@@ -86,10 +84,10 @@ impl RedisScanner {
 
         // ファイルリストキャッシュ
         total_deleted += self.delete_by_pattern("files:list:*").await?;
-        
+
         // ファイルメタデータキャッシュ
         total_deleted += self.delete_by_pattern("file:metadata:*").await?;
-        
+
         // 検索キャッシュ
         total_deleted += self.delete_by_pattern("files:search:*").await?;
 
@@ -97,10 +95,7 @@ impl RedisScanner {
     }
 
     /// ユーザーセッションキャッシュを無効化
-    pub async fn invalidate_user_sessions(
-        &mut self,
-        user_id: &str,
-    ) -> Result<usize, RedisError> {
+    pub async fn invalidate_user_sessions(&mut self, user_id: &str) -> Result<usize, RedisError> {
         self.delete_by_pattern(&format!("session:user:{}:*", user_id))
             .await
     }

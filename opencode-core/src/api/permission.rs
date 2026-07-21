@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, web};
+use actix_web::{web, HttpResponse};
 use parking_lot::RwLock;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -29,7 +29,8 @@ pub async fn list_permissions(
     store: web::Data<PermissionStore>,
 ) -> HttpResponse {
     let permissions = store.read();
-    let items: Vec<&PermissionV2Request> = permissions.values()
+    let items: Vec<&PermissionV2Request> = permissions
+        .values()
         .filter(|p| p.session_id == path.id)
         .collect();
     HttpResponse::Ok().json(serde_json::json!({ "data": items }))
@@ -44,11 +45,15 @@ pub async fn reply_permission(
     let mut permissions = store.write();
     permissions.remove(&path.request_id);
 
-    crate::api::events::emit_event(&bus, "permission.v2.replied", serde_json::json!({
-        "sessionID": path.id,
-        "requestID": path.request_id,
-        "reply": body.reply,
-    }));
+    crate::api::events::emit_event(
+        &bus,
+        "permission.v2.replied",
+        serde_json::json!({
+            "sessionID": path.id,
+            "requestID": path.request_id,
+            "reply": body.reply,
+        }),
+    );
 
     HttpResponse::NoContent().finish()
 }

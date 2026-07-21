@@ -31,29 +31,39 @@ pub struct WebFetchTool;
 
 #[async_trait::async_trait]
 impl super::ToolRuntime for WebFetchTool {
-    fn name(&self) -> &str { NAME }
-    fn spec(&self) -> ToolSpec { spec() }
+    fn name(&self) -> &str {
+        NAME
+    }
+    fn spec(&self) -> ToolSpec {
+        spec()
+    }
 
     async fn execute(&self, args: Value, _ctx: &ToolContext) -> Result<String, ToolError> {
         let url = args
             .get("url")
             .and_then(|v| v.as_str())
             .ok_or_else(|| ToolError::InvalidArgs("missing 'url'".into()))?;
-        let max_length = args.get("max_length").and_then(|v| v.as_u64()).unwrap_or(8000);
+        let max_length = args
+            .get("max_length")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(8000);
         info!(url = %url, "web_fetch");
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(15))
             .build()
             .map_err(|e| ToolError::Other(format!("http client error: {e}")))?;
-        let response = client.get(url).send().await.map_err(|e| {
-            ToolError::Other(format!("http request failed: {e}"))
-        })?;
+        let response = client
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| ToolError::Other(format!("http request failed: {e}")))?;
         if !response.status().is_success() {
             return Ok(format!("HTTP {}", response.status()));
         }
-        let body = response.text().await.map_err(|e| {
-            ToolError::Other(format!("read body error: {e}"))
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| ToolError::Other(format!("read body error: {e}")))?;
         let truncated = if body.len() > max_length as usize {
             let mut s: String = body.chars().take(max_length as usize).collect();
             s.push_str("\n...(truncated)");

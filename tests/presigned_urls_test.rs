@@ -25,7 +25,13 @@ async fn test_presigned_put_url_generation() {
         }
     };
 
-    let result = client.generate_presigned_put_url("test/file.txt", Duration::from_secs(300), Some("text/plain")).await;
+    let result = client
+        .generate_presigned_put_url(
+            "test/file.txt",
+            Duration::from_secs(300),
+            Some("text/plain"),
+        )
+        .await;
 
     match result {
         Ok(url) => {
@@ -51,7 +57,9 @@ async fn test_presigned_get_url_generation() {
         }
     };
 
-    let result = client.generate_presigned_get_url("test/file.txt", Duration::from_secs(3600)).await;
+    let result = client
+        .generate_presigned_get_url("test/file.txt", Duration::from_secs(3600))
+        .await;
 
     match result {
         Ok(url) => {
@@ -78,12 +86,16 @@ async fn test_presigned_url_expiry_validation() {
     };
 
     // 24-hour TTL should be valid
-    let result_valid = client.generate_presigned_put_url("test/file.txt", Duration::from_secs(86400), None).await;
+    let result_valid = client
+        .generate_presigned_put_url("test/file.txt", Duration::from_secs(86400), None)
+        .await;
     assert!(result_valid.is_ok(), "24-hour TTL should be valid");
     println!("✅ Presigned URL with 24h TTL validated");
 
     // 1-second TTL should be valid
-    let result_min = client.generate_presigned_put_url("test/file.txt", Duration::from_secs(1), None).await;
+    let result_min = client
+        .generate_presigned_put_url("test/file.txt", Duration::from_secs(1), None)
+        .await;
     assert!(result_min.is_ok(), "1-second TTL should be valid");
     println!("✅ Presigned URL with 1s TTL validated");
 }
@@ -99,14 +111,27 @@ async fn test_presigned_put_url_signature() {
         }
     };
 
-    let url = client.generate_presigned_put_url("test/file.txt", Duration::from_secs(300), Some("text/plain")).await.expect("Failed to generate URL");
+    let url = client
+        .generate_presigned_put_url(
+            "test/file.txt",
+            Duration::from_secs(300),
+            Some("text/plain"),
+        )
+        .await
+        .expect("Failed to generate URL");
 
-    assert!(url.contains("X-Amz-Algorithm=AWS4-HMAC-SHA256"), "Missing AWS4 algorithm");
+    assert!(
+        url.contains("X-Amz-Algorithm=AWS4-HMAC-SHA256"),
+        "Missing AWS4 algorithm"
+    );
     assert!(url.contains("X-Amz-Credential"), "Missing credentials");
     assert!(url.contains("X-Amz-Date"), "Missing date");
     assert!(url.contains("X-Amz-Expires=300"), "Incorrect expiry");
     assert!(url.contains("X-Amz-Signature"), "Missing signature");
-    assert!(url.contains("X-Amz-SignedHeaders"), "Missing signed headers");
+    assert!(
+        url.contains("X-Amz-SignedHeaders"),
+        "Missing signed headers"
+    );
 
     println!("✅ Presigned PUT URL signature verified");
 }
@@ -122,14 +147,23 @@ async fn test_presigned_get_url_signature() {
         }
     };
 
-    let url = client.generate_presigned_get_url("test/file.txt", Duration::from_secs(3600)).await.expect("Failed to generate URL");
+    let url = client
+        .generate_presigned_get_url("test/file.txt", Duration::from_secs(3600))
+        .await
+        .expect("Failed to generate URL");
 
-    assert!(url.contains("X-Amz-Algorithm=AWS4-HMAC-SHA256"), "Missing AWS4 algorithm");
+    assert!(
+        url.contains("X-Amz-Algorithm=AWS4-HMAC-SHA256"),
+        "Missing AWS4 algorithm"
+    );
     assert!(url.contains("X-Amz-Credential"), "Missing credentials");
     assert!(url.contains("X-Amz-Date"), "Missing date");
     assert!(url.contains("X-Amz-Expires=3600"), "Incorrect expiry");
     assert!(url.contains("X-Amz-Signature"), "Missing signature");
-    assert!(url.contains("X-Amz-SignedHeaders"), "Missing signed headers");
+    assert!(
+        url.contains("X-Amz-SignedHeaders"),
+        "Missing signed headers"
+    );
 
     println!("✅ Presigned GET URL signature verified");
 }
@@ -153,7 +187,9 @@ async fn test_presigned_urls_with_special_characters() {
     ];
 
     for filename in test_files {
-        let result = client.generate_presigned_put_url(filename, Duration::from_secs(300), None).await;
+        let result = client
+            .generate_presigned_put_url(filename, Duration::from_secs(300), None)
+            .await;
 
         match result {
             Ok(url) => {

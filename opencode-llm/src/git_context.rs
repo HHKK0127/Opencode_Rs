@@ -174,14 +174,8 @@ impl GitContext {
             ])
             .await?;
         let mut parts = out.split_whitespace();
-        let behind: usize = parts
-            .next()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
-        let ahead: usize = parts
-            .next()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
+        let behind: usize = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let ahead: usize = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
         Ok((ahead, behind))
     }
 
@@ -191,7 +185,11 @@ impl GitContext {
         let sep = "---END-OF-COMMIT---";
         let format = format!("%H%x00%h%x00%an%x00%ae%x00%aI%x00%s%x00%b{sep}");
         let out = self
-            .run_with_format(&["log", &format!("-n{n_str}"), &format!("--pretty=format:{format}")])
+            .run_with_format(&[
+                "log",
+                &format!("-n{n_str}"),
+                &format!("--pretty=format:{format}"),
+            ])
             .await?;
         let mut commits = Vec::new();
         for chunk in out.split(sep).filter(|s| !s.trim().is_empty()) {
@@ -251,7 +249,10 @@ impl GitContext {
             let code = &line[..2];
             let path_part = &line[3..];
             let (old, new) = if let Some(idx) = path_part.find(" -> ") {
-                (Some(path_part[..idx].to_string()), path_part[idx + 4..].to_string())
+                (
+                    Some(path_part[..idx].to_string()),
+                    path_part[idx + 4..].to_string(),
+                )
             } else {
                 (None, path_part.to_string())
             };
@@ -338,11 +339,14 @@ impl GitContext {
 
     /// Detect merge / rebase / cherry-pick in progress.
     pub async fn is_in_progress(&self) -> bool {
-        self.run(&["rev-parse", "--is-inside-work-tree"]).await.is_ok()
-            && (self.path_exists(&self.cwd.join(".git/MERGE_HEAD"))
-                .await
+        self.run(&["rev-parse", "--is-inside-work-tree"])
+            .await
+            .is_ok()
+            && (self.path_exists(&self.cwd.join(".git/MERGE_HEAD")).await
                 || self.path_exists(&self.cwd.join(".git/REBASE_HEAD")).await
-                || self.path_exists(&self.cwd.join(".git/CHERRY_PICK_HEAD")).await)
+                || self
+                    .path_exists(&self.cwd.join(".git/CHERRY_PICK_HEAD"))
+                    .await)
     }
 
     async fn path_exists(&self, p: &Path) -> bool {
@@ -373,7 +377,10 @@ impl GitContext {
         if status.clean {
             out.push_str("Working tree: clean\n");
         } else {
-            out.push_str(&format!("Working tree: {} file(s) changed\n", status.files.len()));
+            out.push_str(&format!(
+                "Working tree: {} file(s) changed\n",
+                status.files.len()
+            ));
         }
         out
     }
@@ -417,10 +424,7 @@ mod tests {
     #[tokio::test]
     async fn non_git_dir_is_not_a_repo() {
         // Use a temp directory to ensure it's not a git repo.
-        let tmp = std::env::temp_dir().join(format!(
-            "opencode-llm-test-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp = std::env::temp_dir().join(format!("opencode-llm-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&tmp).unwrap();
         let ctx = GitContext::new(&tmp);
         assert!(!ctx.is_repo().await);
@@ -485,7 +489,10 @@ mod tests {
         let line = "R  old/path.rs -> new/path.rs";
         let path_part = &line[3..];
         let (old, new) = if let Some(idx) = path_part.find(" -> ") {
-            (Some(path_part[..idx].to_string()), path_part[idx + 4..].to_string())
+            (
+                Some(path_part[..idx].to_string()),
+                path_part[idx + 4..].to_string(),
+            )
         } else {
             (None, path_part.to_string())
         };
@@ -495,10 +502,7 @@ mod tests {
 
     #[tokio::test]
     async fn summary_returns_string_for_non_git() {
-        let tmp = std::env::temp_dir().join(format!(
-            "opencode-llm-test-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp = std::env::temp_dir().join(format!("opencode-llm-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&tmp).unwrap();
         let ctx = GitContext::new(&tmp);
         let summary = ctx.summary().await;
@@ -509,10 +513,7 @@ mod tests {
     #[tokio::test]
     async fn upstream_none_for_fresh_repo() {
         // Make a fresh git repo with no commits.
-        let tmp = std::env::temp_dir().join(format!(
-            "opencode-llm-test-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp = std::env::temp_dir().join(format!("opencode-llm-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&tmp).unwrap();
         let _ = Command::new("git")
             .args(["init", "-q"])
@@ -527,10 +528,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_files_in_empty_repo() {
-        let tmp = std::env::temp_dir().join(format!(
-            "opencode-llm-test-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp = std::env::temp_dir().join(format!("opencode-llm-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&tmp).unwrap();
         let _ = Command::new("git")
             .args(["init", "-q"])
@@ -545,10 +543,7 @@ mod tests {
 
     #[tokio::test]
     async fn ahead_behind_returns_zero_for_fresh_repo() {
-        let tmp = std::env::temp_dir().join(format!(
-            "opencode-llm-test-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let tmp = std::env::temp_dir().join(format!("opencode-llm-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&tmp).unwrap();
         let _ = Command::new("git")
             .args(["init", "-q"])

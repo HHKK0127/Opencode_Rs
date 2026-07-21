@@ -17,7 +17,10 @@ async fn test_s3_client_initialization() {
             println!("✓ S3Client initialized successfully");
         }
         Err(e) => {
-            println!("⚠ S3Client initialization skipped (MinIO may not be running): {:?}", e);
+            println!(
+                "⚠ S3Client initialization skipped (MinIO may not be running): {:?}",
+                e
+            );
         }
     }
 }
@@ -38,7 +41,10 @@ async fn test_s3_upload_and_download() {
     let data = b"Hello, S3!".to_vec();
 
     // Upload
-    match client.upload_object(key, data.clone(), Some("text/plain")).await {
+    match client
+        .upload_object(key, data.clone(), Some("text/plain"))
+        .await
+    {
         Ok(etag) => {
             println!("✓ Upload successful: etag = {}", etag);
             assert!(!etag.is_empty());
@@ -87,7 +93,10 @@ async fn test_s3_presigned_urls() {
     let key = "test/presigned-test.txt";
 
     // PUT Presigned URL
-    match client.generate_presigned_put_url(key, Duration::from_secs(300), Some("text/plain")).await {
+    match client
+        .generate_presigned_put_url(key, Duration::from_secs(300), Some("text/plain"))
+        .await
+    {
         Ok(put_url) => {
             println!("✓ Presigned PUT URL generated: {}", put_url);
             assert!(put_url.contains("X-Amz-Signature") || put_url.contains("Signature"));
@@ -99,7 +108,10 @@ async fn test_s3_presigned_urls() {
     }
 
     // GET Presigned URL
-    match client.generate_presigned_get_url(key, Duration::from_secs(3600)).await {
+    match client
+        .generate_presigned_get_url(key, Duration::from_secs(3600))
+        .await
+    {
         Ok(get_url) => {
             println!("✓ Presigned GET URL generated: {}", get_url);
             assert!(get_url.contains("X-Amz-Signature") || get_url.contains("Signature"));
@@ -163,7 +175,10 @@ async fn test_s3_multipart_upload() {
     };
 
     // Complete multipart upload
-    match client.complete_multipart_upload(key, &upload_id, vec![part1, part2]).await {
+    match client
+        .complete_multipart_upload(key, &upload_id, vec![part1, part2])
+        .await
+    {
         Ok(etag) => {
             println!("✓ Multipart upload completed: etag = {}", etag);
         }

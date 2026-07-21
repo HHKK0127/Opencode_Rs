@@ -1,5 +1,6 @@
-use sqlx::sqlite::SqlitePool;
+#![allow(dead_code)]
 use log::info;
+use sqlx::sqlite::SqlitePool;
 
 /// Initialize database with initial schema and migrations
 pub async fn init_database(pool: &SqlitePool) -> Result<(), Box<dyn std::error::Error>> {
@@ -31,11 +32,31 @@ async fn create_migration_history_table(pool: &SqlitePool) -> Result<(), sqlx::E
 
 async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     let migrations = vec![
-        (1, "001_create_users_table", include_str!("../../migrations/001_create_users_table.sql")),
-        (2, "002_create_files_table", include_str!("../../migrations/002_create_files_table.sql")),
-        (3, "003_performance_indexes", include_str!("../../migrations/003_performance_indexes.sql")),
-        (4, "004_file_metadata", include_str!("../../migrations/004_file_metadata.sql")),
-        (5, "005_s3_file_metadata", include_str!("../../migrations/005_s3_file_metadata.sql")),
+        (
+            1,
+            "001_create_users_table",
+            include_str!("../../migrations/001_create_users_table.sql"),
+        ),
+        (
+            2,
+            "002_create_files_table",
+            include_str!("../../migrations/002_create_files_table.sql"),
+        ),
+        (
+            3,
+            "003_performance_indexes",
+            include_str!("../../migrations/003_performance_indexes.sql"),
+        ),
+        (
+            4,
+            "004_file_metadata",
+            include_str!("../../migrations/004_file_metadata.sql"),
+        ),
+        (
+            5,
+            "005_s3_file_metadata",
+            include_str!("../../migrations/005_s3_file_metadata.sql"),
+        ),
     ];
 
     for (version, name, sql) in migrations {
@@ -48,7 +69,7 @@ async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 
             sqlx::query(
                 "INSERT INTO _sqlx_migrations (version, description, execution_time, success)
-                 VALUES ($1, $2, $3, $4)"
+                 VALUES ($1, $2, $3, $4)",
             )
             .bind(version as i64)
             .bind(name)
@@ -57,7 +78,11 @@ async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
             .execute(pool)
             .await?;
 
-            info!("✓ Migration {} completed in {:.2}ms", version, duration.as_millis());
+            info!(
+                "✓ Migration {} completed in {:.2}ms",
+                version,
+                duration.as_millis()
+            );
         }
     }
 
@@ -65,12 +90,11 @@ async fn run_all_migrations(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 }
 
 async fn migration_exists(pool: &SqlitePool, version: i32) -> Result<bool, sqlx::Error> {
-    let result: Option<(i64,)> = sqlx::query_as(
-        "SELECT version FROM _sqlx_migrations WHERE version = $1"
-    )
-    .bind(version as i64)
-    .fetch_optional(pool)
-    .await?;
+    let result: Option<(i64,)> =
+        sqlx::query_as("SELECT version FROM _sqlx_migrations WHERE version = $1")
+            .bind(version as i64)
+            .fetch_optional(pool)
+            .await?;
 
     Ok(result.is_some())
 }
@@ -78,14 +102,23 @@ async fn migration_exists(pool: &SqlitePool, version: i32) -> Result<bool, sqlx:
 pub async fn get_migration_history(pool: &SqlitePool) -> Result<Vec<MigrationRecord>, sqlx::Error> {
     let records = sqlx::query_as::<_, (i64, String, String, i64, bool)>(
         "SELECT version, description, installed_on::text, execution_time, success
-         FROM _sqlx_migrations ORDER BY version ASC"
+         FROM _sqlx_migrations ORDER BY version ASC",
     )
     .fetch_all(pool)
     .await?;
 
-    Ok(records.into_iter().map(|(version, description, installed_on, execution_time, success)| {
-        MigrationRecord { version, description, installed_on, execution_time, success }
-    }).collect())
+    Ok(records
+        .into_iter()
+        .map(
+            |(version, description, installed_on, execution_time, success)| MigrationRecord {
+                version,
+                description,
+                installed_on,
+                execution_time,
+                success,
+            },
+        )
+        .collect())
 }
 
 #[derive(Debug, Clone)]

@@ -3,10 +3,10 @@
 //! Runs shell commands on the local machine. Execution is guarded by the
 //! [`ToolContext::can_exec_shell`] flag and a configurable timeout.
 
+use super::{ToolContext, ToolError, ToolSpec};
 use serde_json::Value;
 use tokio::process::Command;
 use tracing::info;
-use super::{ToolContext, ToolError, ToolSpec};
 pub static NAME: &str = "bash";
 static DESCRIPTION: &str = r#"Execute a shell command on the local machine. The command runs in a sub-process with a configurable timeout. Use this to run code, install packages, compile, test, or perform any shell operation within the workspace directory.
 
@@ -100,7 +100,10 @@ impl super::ToolRuntime for BashTool {
                 result.push_str(&stdout);
                 result.push('\n');
             }
-            result.push_str(&format!("exit code: {}", output.status.code().unwrap_or(-1)));
+            result.push_str(&format!(
+                "exit code: {}",
+                output.status.code().unwrap_or(-1)
+            ));
             if !stderr.is_empty() {
                 result.push_str("\n--- stderr ---\n");
                 result.push_str(&stderr);

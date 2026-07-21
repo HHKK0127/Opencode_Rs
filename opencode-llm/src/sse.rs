@@ -83,7 +83,7 @@ impl SseParser {
         }
 
         // An SSE event with `data: [DONE]` signals the end of a stream.
-        if data_lines.iter().any(|l| *l == "[DONE]") {
+        if data_lines.contains(&"[DONE]") {
             return Ok(Some(StreamEvent::MessageStop));
         }
 
@@ -118,11 +118,10 @@ impl SseParser {
             Some("content_block_start") => {
                 let v: serde_json::Value = serde_json::from_str(&payload)
                     .map_err(|e| LlmError::Sse(format!("invalid content_block_start JSON: {e}")))?;
-                let index = v
-                    .get("index")
-                    .and_then(|x| x.as_u64())
-                    .ok_or_else(|| LlmError::Sse("missing index in content_block_start".into()))?
-                    as u32;
+                let index =
+                    v.get("index").and_then(|x| x.as_u64()).ok_or_else(|| {
+                        LlmError::Sse("missing index in content_block_start".into())
+                    })? as u32;
                 let block = v
                     .get("content_block")
                     .ok_or_else(|| LlmError::Sse("missing content_block".into()))?;
@@ -158,14 +157,13 @@ impl SseParser {
             Some("content_block_delta") => {
                 let v: serde_json::Value = serde_json::from_str(&payload)
                     .map_err(|e| LlmError::Sse(format!("invalid content_block_delta JSON: {e}")))?;
-                let index = v
-                    .get("index")
-                    .and_then(|x| x.as_u64())
-                    .ok_or_else(|| LlmError::Sse("missing index in content_block_delta".into()))?
-                    as u32;
-                let delta = v.get("delta").ok_or_else(|| {
-                    LlmError::Sse("missing delta in content_block_delta".into())
-                })?;
+                let index =
+                    v.get("index").and_then(|x| x.as_u64()).ok_or_else(|| {
+                        LlmError::Sse("missing index in content_block_delta".into())
+                    })? as u32;
+                let delta = v
+                    .get("delta")
+                    .ok_or_else(|| LlmError::Sse("missing delta in content_block_delta".into()))?;
                 let delta_type = delta
                     .get("type")
                     .and_then(|x| x.as_str())
@@ -185,11 +183,7 @@ impl SseParser {
                             .unwrap_or("")
                             .to_string(),
                     },
-                    other => {
-                        return Err(LlmError::Sse(format!(
-                            "unsupported delta type: {other}"
-                        )))
-                    }
+                    other => return Err(LlmError::Sse(format!("unsupported delta type: {other}"))),
                 };
                 Ok(Some(crate::events::StreamEvent::ContentBlockDelta {
                     index,
@@ -199,11 +193,10 @@ impl SseParser {
             Some("content_block_stop") => {
                 let v: serde_json::Value = serde_json::from_str(&payload)
                     .map_err(|e| LlmError::Sse(format!("invalid content_block_stop JSON: {e}")))?;
-                let index = v
-                    .get("index")
-                    .and_then(|x| x.as_u64())
-                    .ok_or_else(|| LlmError::Sse("missing index in content_block_stop".into()))?
-                    as u32;
+                let index =
+                    v.get("index").and_then(|x| x.as_u64()).ok_or_else(|| {
+                        LlmError::Sse("missing index in content_block_stop".into())
+                    })? as u32;
                 Ok(Some(crate::events::StreamEvent::ContentBlockStop { index }))
             }
             Some("message_delta") => {
@@ -214,7 +207,9 @@ impl SseParser {
                     .and_then(|d| d.get("stop_reason"))
                     .and_then(|x| x.as_str())
                     .map(|s| s.to_string());
-                Ok(Some(crate::events::StreamEvent::MessageDelta { stop_reason }))
+                Ok(Some(crate::events::StreamEvent::MessageDelta {
+                    stop_reason,
+                }))
             }
             Some("message_stop") => Ok(Some(StreamEvent::MessageStop)),
             Some("ping") => Ok(Some(StreamEvent::Ping)),

@@ -1,3 +1,5 @@
+#![cfg(feature = "postgres")]
+
 use reqwest::Client;
 use serde_json::{json, Value};
 
@@ -18,10 +20,10 @@ async fn upload(client: &Client, token: &str, filename: &str, content: Vec<u8>) 
     let resp = client
         .post(&format!("{}/files/upload", API_BASE))
         .header("Authorization", format!("Bearer {}", token))
-        .multipart(
-            reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(content).file_name(filename.to_string()))
-        )
+        .multipart(reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(content).file_name(filename.to_string()),
+        ))
         .send()
         .await
         .expect("Upload failed");
@@ -44,7 +46,13 @@ async fn test_get_file_metadata() {
     let client = Client::new();
     let token = get_token(&client).await;
 
-    let upload_body = upload(&client, &token, "metadata_test.pdf", b"test metadata content".to_vec()).await;
+    let upload_body = upload(
+        &client,
+        &token,
+        "metadata_test.pdf",
+        b"test metadata content".to_vec(),
+    )
+    .await;
     let file_id = upload_body["id"].as_str().unwrap();
 
     let meta_resp = client
@@ -87,7 +95,13 @@ async fn test_delete_file() {
     let client = Client::new();
     let token = get_token(&client).await;
 
-    let upload_body = upload(&client, &token, "delete_test.txt", b"file to delete".to_vec()).await;
+    let upload_body = upload(
+        &client,
+        &token,
+        "delete_test.txt",
+        b"file to delete".to_vec(),
+    )
+    .await;
     let file_id = upload_body["id"].as_str().unwrap();
 
     let delete_resp = client
@@ -117,7 +131,13 @@ async fn test_list_files_with_pagination() {
     let token = get_token(&client).await;
 
     for i in 0..5 {
-        upload(&client, &token, &format!("list_test_{}.txt", i), format!("file {}", i).into_bytes()).await;
+        upload(
+            &client,
+            &token,
+            &format!("list_test_{}.txt", i),
+            format!("file {}", i).into_bytes(),
+        )
+        .await;
     }
 
     let list_resp = client
@@ -186,7 +206,7 @@ async fn test_chunked_upload_flow() {
             .multipart(
                 reqwest::multipart::Form::new()
                     .text("chunk_index", chunk_index.to_string())
-                    .part("chunk", reqwest::multipart::Part::bytes(chunk_data.clone()))
+                    .part("chunk", reqwest::multipart::Part::bytes(chunk_data.clone())),
             )
             .send()
             .await
@@ -196,7 +216,10 @@ async fn test_chunked_upload_flow() {
     }
 
     let complete_resp = client
-        .post(&format!("{}/files/upload/complete/{}", API_BASE, session_id))
+        .post(&format!(
+            "{}/files/upload/complete/{}",
+            API_BASE, session_id
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
@@ -235,13 +258,16 @@ async fn test_get_upload_progress() {
         .multipart(
             reqwest::multipart::Form::new()
                 .text("chunk_index", "0")
-                .part("chunk", reqwest::multipart::Part::bytes(chunk_data))
+                .part("chunk", reqwest::multipart::Part::bytes(chunk_data)),
         )
         .send()
         .await;
 
     let progress_resp = client
-        .get(&format!("{}/files/upload/progress/{}", API_BASE, session_id))
+        .get(&format!(
+            "{}/files/upload/progress/{}",
+            API_BASE, session_id
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
@@ -266,10 +292,10 @@ async fn test_file_size_limit() {
     let result = client
         .post(&format!("{}/files/upload", API_BASE))
         .header("Authorization", format!("Bearer {}", token))
-        .multipart(
-            reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(large_content).file_name("too_large.bin"))
-        )
+        .multipart(reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(large_content).file_name("too_large.bin"),
+        ))
         .send()
         .await;
 
@@ -292,7 +318,10 @@ async fn test_nonexistent_file() {
     let token = get_token(&client).await;
 
     let resp = client
-        .get(&format!("{}/files/nonexistent-file-id-that-does-not-exist", API_BASE))
+        .get(&format!(
+            "{}/files/nonexistent-file-id-that-does-not-exist",
+            API_BASE
+        ))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
@@ -310,9 +339,11 @@ async fn test_filename_sanitization() {
         .post(&format!("{}/files/upload", API_BASE))
         .header("Authorization", format!("Bearer {}", token))
         .multipart(
-            reqwest::multipart::Form::new()
-                .part("file", reqwest::multipart::Part::bytes(b"sanitized content".to_vec())
-                    .file_name("test@#$%^&()file.txt"))
+            reqwest::multipart::Form::new().part(
+                "file",
+                reqwest::multipart::Part::bytes(b"sanitized content".to_vec())
+                    .file_name("test@#$%^&()file.txt"),
+            ),
         )
         .send()
         .await
@@ -330,7 +361,13 @@ async fn test_checksum_verification() {
     let client = Client::new();
     let token = get_token(&client).await;
 
-    let body = upload(&client, &token, "checksum_test.txt", b"test checksum content".to_vec()).await;
+    let body = upload(
+        &client,
+        &token,
+        "checksum_test.txt",
+        b"test checksum content".to_vec(),
+    )
+    .await;
     let checksum = body["checksum"].as_str().unwrap();
 
     // SHA-256 is 64 hex characters

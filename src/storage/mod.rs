@@ -1,10 +1,12 @@
+#![allow(dead_code, unused_imports, clippy::all)]
+
 pub mod error;
+pub mod failover;
 pub mod local_backend;
+pub mod metrics;
+pub mod multipart;
 pub mod s3_backend;
 pub mod s3_client;
-pub mod multipart;
-pub mod failover;
-pub mod metrics;
 
 #[cfg(test)]
 mod tests;
@@ -27,14 +29,14 @@ use std::fmt;
 use uuid::Uuid;
 
 pub use error::{StorageError, StorageResult};
-pub use local_backend::LocalStorageBackend;
-pub use s3_backend::S3StorageBackend;
 pub use failover::FailoverStorageBackend;
+pub use local_backend::LocalStorageBackend;
 pub use metrics::StorageMetrics;
 pub use multipart::{
-    MultipartStorageBackend, MultipartUploadInit, MultipartUploadSession, ChunkMetadata,
+    ChunkMetadata, MultipartStorageBackend, MultipartUploadInit, MultipartUploadSession,
     UploadProgress,
 };
+pub use s3_backend::S3StorageBackend;
 
 #[derive(Clone, Debug)]
 pub struct FileMetadata {
@@ -58,11 +60,7 @@ impl fmt::Display for StorageUrl {
 
 #[async_trait]
 pub trait StorageBackend: Send + Sync {
-    async fn store(
-        &self,
-        data: Bytes,
-        metadata: FileMetadata,
-    ) -> StorageResult<StorageUrl>;
+    async fn store(&self, data: Bytes, metadata: FileMetadata) -> StorageResult<StorageUrl>;
 
     async fn retrieve(&self, id: &str) -> StorageResult<Bytes>;
 

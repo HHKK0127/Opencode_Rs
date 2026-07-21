@@ -130,9 +130,7 @@ impl InputMessage {
         let content = blocks
             .iter()
             .map(|b| match b {
-                OutputContentBlock::Text { text } => InputContentBlock::Text {
-                    text: text.clone(),
-                },
+                OutputContentBlock::Text { text } => InputContentBlock::Text { text: text.clone() },
                 OutputContentBlock::ToolUse { id, name, input } => InputContentBlock::ToolUse {
                     id: id.clone(),
                     name: name.clone(),

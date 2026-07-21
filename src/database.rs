@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use std::time::Duration;
 use tracing::info;
@@ -21,7 +22,12 @@ pub async fn create_pool(config: &DatabaseConfig) -> Result<SqlitePool, sqlx::Er
     info!("Creating database pool: SQLite");
 
     let options = sqlx::sqlite::SqliteConnectOptions::new()
-        .filename(&config.url.replace("sqlite:///", "").replace("sqlite://", ""))
+        .filename(
+            &config
+                .url
+                .replace("sqlite:///", "")
+                .replace("sqlite://", ""),
+        )
         .create_if_missing(true);
 
     let pool = SqlitePoolOptions::new()

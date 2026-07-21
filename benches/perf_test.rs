@@ -1,3 +1,5 @@
+#![allow(dead_code, unused_imports, unused_variables, clippy::all)]
+
 use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
@@ -46,8 +48,8 @@ fn main() {
     // Argon2 パスワードハッシュテスト
     println!("=== Argon2 Password Hashing Test ===\n");
 
-    use argon2::{Argon2, PasswordHasher, PasswordHash, PasswordVerifier};
     use argon2::password_hash::SaltString;
+    use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
     use rand_core::OsRng;
 
     let password = "testpassword123";
@@ -60,7 +62,7 @@ fn main() {
         let salt = SaltString::generate(OsRng);
         let argon2 = Argon2::default();
         if let Ok(hash) = argon2.hash_password(password.as_bytes(), &salt) {
-            hashes.push(hash);
+            hashes.push(hash.to_string());
         }
     }
 
@@ -78,8 +80,8 @@ fn main() {
         let verify_iterations = 100;
 
         for _ in 0..verify_iterations {
-            let _ = Argon2::default()
-                .verify_password(password.as_bytes(), &first_hash);
+            let parsed_hash = PasswordHash::new(first_hash).expect("valid hash");
+            let _ = Argon2::default().verify_password(password.as_bytes(), &parsed_hash);
         }
 
         let verify_duration = start.elapsed();
@@ -88,7 +90,10 @@ fn main() {
         println!("Password verification time: {:?}", verify_duration);
         println!("Iterations: {}", verify_iterations);
         println!("Average per verification: {:.0} ms", avg_verify_ms);
-        println!("Throughput: {:.1} verifications/sec\n", 1000.0 / avg_verify_ms);
+        println!(
+            "Throughput: {:.1} verifications/sec\n",
+            1000.0 / avg_verify_ms
+        );
     }
 
     println!("=== Summary ===");

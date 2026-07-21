@@ -48,10 +48,7 @@ impl MockCache {
     }
 
     fn stats(&self) -> (u64, u64) {
-        (
-            *self.hits.lock().unwrap(),
-            *self.misses.lock().unwrap(),
-        )
+        (*self.hits.lock().unwrap(), *self.misses.lock().unwrap())
     }
 }
 
@@ -100,10 +97,7 @@ fn test_02_file_list_cache() {
     // Verify separate cache entries
     assert_eq!(cache.get(&list_key_page1).unwrap(), page1_data);
     assert_eq!(cache.get(&list_key_page2).unwrap(), page2_data);
-    assert_eq!(
-        cache.get(&list_key_different_size).unwrap(),
-        page1_50_data
-    );
+    assert_eq!(cache.get(&list_key_different_size).unwrap(), page1_50_data);
 
     let (hits, misses) = cache.stats();
     assert_eq!(hits, 3, "All three accesses should hit");
@@ -256,7 +250,10 @@ fn test_07_cache_memory_efficiency() {
     assert!(total_memory < 20000, "Total memory should be reasonable");
 
     let avg_per_entry = total_memory as f64 / 100.0;
-    assert!(avg_per_entry > 50.0, "Average entry size should be > 50 bytes");
+    assert!(
+        avg_per_entry > 50.0,
+        "Average entry size should be > 50 bytes"
+    );
 }
 
 // Simple hash function for testing
